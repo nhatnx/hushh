@@ -1,0 +1,348 @@
+/* =========================================================
+   audio-analyzer.js
+   On-device acoustic feature extraction using Web Audio API.
+   NO data leaves the device — all processing is local.
+
+   Extracts:
+   - RMS energy (volume over time)
+   - Zero-crossing rate (roughness / noisiness)
+   - Spectral centroid (brightness)
+   - Dominant pitch via autocorrelation (McLeod Pitch Method)
+   - Rhythm / periodicity score
+   - Mel-frequency cepstral coefficients (13 MFCCs)
+   - Onset events (cry bursts vs pauses)
+   ========================================================= */
+
+export class AudioAnalyzer {
+  constructor(sampleRate = 44100) {
+    this.sampleRate = sampleRate;
+    this.frameSize = 2048;
+    this.hopSize = 512;
+    this.melBands = 26;
+    this.numMFCC = 13;
+  }
+
+  /* ----------------------------------------------------------
+     Main entry point: analyze a Float32Array of PCM samples
+     Returns a feature vector ready for the classifier
+  ---------------------------------------------------------- */
+  analyze(samples) {
+    if (samples.length < this.frameSize) {
+      throw new Error('Audio too short — need at least ' + this.frameSize + ' samples');
+    }
+
+    // Split into overlapping frames
+    const frames = this._frame(samples);
+
+    // Per-frame features
+    const rmsArr       = frames.map(f => this._rms(f));
+    const zcrArr       = frames.map(f => this._zcr(f));
+    const centroidArr  = frames.map(f => this._spectralCentroid(f));
+    const pitchArr     = frames.map(f => this._pitch(f));
+    const mfccMatrix   = frames.map(f => this._mfcc(f));
+
+    // Aggregate statistics
+    const features = {
+      // Energy
+      rms_mean:      this._mean(rmsArr),
+      rms_std:       this._std(rmsArr),
+      rms_max:       Math.max(...rmsArr),
+
+      // Pitch
+      pitch_mean:    this._mean(pitchArr.filter(p => p > 0)),
+      pitch_std:     this._std(pitchArr.filter(p => p > 0)),
+      pitch_voiced:  pitchArr.filter(p => p > 80).length / pitchArr.length,
+
+      // Brightness
+      centroid_mean: this._mean(centroidArr),
+      centroid_std:  this._std(centroidArr),
+
+      // Roughness
+      zcr_mean:      this._mean(zcrArr),
+      zcr_std:       this._std(zcrArr),
+
+      // Rhythm
+      rhythm_score:  this._rhythmScore(rmsArr),
+      onset_rate:    this._onsetRate(rmsArr),
+      cry_burst_ratio: this._cryBurstRatio(rmsArr),
+
+      // MFCCs (mean of each coefficient)
+      mfcc: this._colMeans(mfccMatrix),
+
+      // Duration stats
+      total_frames: frames.length,
+      active_frames: rmsArr.filter(r => r > 0.01).length
+    };
+
+    return features;
+  }
+
+  /* ----------------------------------------------------------
+     Analyze a MediaRecorder Blob → Float32Array via OfflineAudioContext
+  ---------------------------------------------------------- */
+  async blobToFeatures(blob) {
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    await audioCtx.close();
+
+    // Mix down to mono
+    const mono = this._mixToMono(decoded);
+    return this.analyze(mono);
+  }
+
+  /* ----------------------------------------------------------
+     Stream analysis from a live MediaStream (returns features
+     from a rolling buffer — call repeatedly while recording)
+  ---------------------------------------------------------- */
+  createStreamAnalyzer(stream) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = this.frameSize;
+    analyser.smoothingTimeConstant = 0.3;
+    source.connect(analyser);
+
+    const buffer = new Float32Array(analyser.fftSize);
+    const freqBuffer = new Uint8Array(analyser.frequencyBinCount);
+
+    return {
+      ctx,
+      analyser,
+      getFrame: () => {
+        analyser.getFloatTimeDomainData(buffer);
+        return Float32Array.from(buffer);
+      },
+      getFrequency: () => {
+        analyser.getByteFrequencyData(freqBuffer);
+        return Uint8Array.from(freqBuffer);
+      },
+      getInstantFeatures: () => {
+        analyser.getFloatTimeDomainData(buffer);
+        const frame = Float32Array.from(buffer);
+        return {
+          rms: this._rms(frame),
+          zcr: this._zcr(frame),
+          centroid: this._spectralCentroid(frame),
+          pitch: this._pitch(frame)
+        };
+      },
+      stop: () => {
+        source.disconnect();
+        ctx.close();
+      }
+    };
+  }
+
+  /* ----------------------------------------------------------
+     Private helpers
+  ---------------------------------------------------------- */
+
+  _mixToMono(audioBuffer) {
+    const channels = audioBuffer.numberOfChannels;
+    const length = audioBuffer.length;
+    const mono = new Float32Array(length);
+    for (let c = 0; c < channels; c++) {
+      const ch = audioBuffer.getChannelData(c);
+      for (let i = 0; i < length; i++) mono[i] += ch[i] / channels;
+    }
+    return mono;
+  }
+
+  _frame(samples) {
+    const frames = [];
+    for (let i = 0; i + this.frameSize <= samples.length; i += this.hopSize) {
+      frames.push(samples.slice(i, i + this.frameSize));
+    }
+    return frames;
+  }
+
+  _rms(frame) {
+    let sum = 0;
+    for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+    return Math.sqrt(sum / frame.length);
+  }
+
+  _zcr(frame) {
+    let crossings = 0;
+    for (let i = 1; i < frame.length; i++) {
+      if ((frame[i] >= 0) !== (frame[i - 1] >= 0)) crossings++;
+    }
+    return crossings / frame.length;
+  }
+
+  _spectralCentroid(frame) {
+    const mag = this._magnitude(frame);
+    let weightedSum = 0, totalMag = 0;
+    for (let k = 0; k < mag.length; k++) {
+      weightedSum += k * mag[k];
+      totalMag += mag[k];
+    }
+    if (totalMag === 0) return 0;
+    return (weightedSum / totalMag) * (this.sampleRate / this.frameSize);
+  }
+
+  /* McLeod Pitch Method (MPM) — accurate fundamental frequency */
+  _pitch(frame) {
+    const n = frame.length;
+    // Normalized Square Difference Function
+    const nsdf = new Float32Array(n);
+    for (let tau = 0; tau < n; tau++) {
+      let acf = 0, m = 0;
+      for (let i = 0; i + tau < n; i++) {
+        acf += frame[i] * frame[i + tau];
+        m += frame[i] * frame[i] + frame[i + tau] * frame[i + tau];
+      }
+      nsdf[tau] = m === 0 ? 0 : 2 * acf / m;
+    }
+
+    // Find peaks in NSDF
+    const threshold = 0.8;
+    let maxVal = -Infinity, maxTau = -1;
+    let inPositive = false;
+    for (let tau = 1; tau < n; tau++) {
+      if (nsdf[tau] > 0) { inPositive = true; }
+      if (inPositive && nsdf[tau] > threshold) {
+        if (nsdf[tau] > maxVal) { maxVal = nsdf[tau]; maxTau = tau; }
+      }
+      if (inPositive && nsdf[tau] < 0) { inPositive = false; if (maxTau > 0) break; }
+    }
+
+    if (maxTau <= 0) return 0;
+
+    // Parabolic interpolation for sub-sample accuracy
+    const y1 = maxTau > 0 ? nsdf[maxTau - 1] : 0;
+    const y2 = nsdf[maxTau];
+    const y3 = maxTau + 1 < n ? nsdf[maxTau + 1] : 0;
+    const denom = 2 * (2 * y2 - y1 - y3);
+    const refined = denom === 0 ? maxTau : maxTau + (y1 - y3) / denom;
+
+    const freq = this.sampleRate / refined;
+    // Infant cry fundamental is typically 250–600 Hz (can reach 1000 Hz in pain)
+    return (freq >= 60 && freq <= 1200) ? freq : 0;
+  }
+
+  _magnitude(frame) {
+    // Apply Hann window
+    const windowed = new Float32Array(frame.length);
+    for (let i = 0; i < frame.length; i++) {
+      windowed[i] = frame[i] * 0.5 * (1 - Math.cos(2 * Math.PI * i / (frame.length - 1)));
+    }
+    // Real FFT via DFT (simple implementation — TF.js handles heavy lifting)
+    const half = frame.length / 2;
+    const mag = new Float32Array(half);
+    for (let k = 0; k < half; k++) {
+      let re = 0, im = 0;
+      for (let n = 0; n < frame.length; n++) {
+        const angle = 2 * Math.PI * k * n / frame.length;
+        re += windowed[n] * Math.cos(angle);
+        im -= windowed[n] * Math.sin(angle);
+      }
+      mag[k] = Math.sqrt(re * re + im * im);
+    }
+    return mag;
+  }
+
+  _mfcc(frame) {
+    const mag = this._magnitude(frame);
+    const melFilters = this._melFilterBank(mag.length);
+    const melEnergies = melFilters.map(filter => {
+      let e = 0;
+      for (let k = 0; k < mag.length; k++) e += mag[k] * filter[k];
+      return Math.log(e + 1e-10);
+    });
+
+    // DCT-II
+    const mfcc = new Array(this.numMFCC);
+    for (let n = 0; n < this.numMFCC; n++) {
+      let sum = 0;
+      for (let m = 0; m < this.melBands; m++) {
+        sum += melEnergies[m] * Math.cos(Math.PI * n * (m + 0.5) / this.melBands);
+      }
+      mfcc[n] = sum;
+    }
+    return mfcc;
+  }
+
+  _melFilterBank(numBins) {
+    const fMin = 80, fMax = 8000;
+    const melMin = this._hz2mel(fMin), melMax = this._hz2mel(fMax);
+    const melPoints = Array.from({ length: this.melBands + 2 }, (_, i) =>
+      melMin + i * (melMax - melMin) / (this.melBands + 1)
+    );
+    const hzPoints = melPoints.map(m => this._mel2hz(m));
+    const binPoints = hzPoints.map(f => Math.round(f * this.frameSize / this.sampleRate));
+
+    return Array.from({ length: this.melBands }, (_, m) => {
+      const filter = new Float32Array(numBins);
+      for (let k = binPoints[m]; k < binPoints[m + 1]; k++) {
+        filter[k] = (k - binPoints[m]) / (binPoints[m + 1] - binPoints[m]);
+      }
+      for (let k = binPoints[m + 1]; k < binPoints[m + 2]; k++) {
+        filter[k] = (binPoints[m + 2] - k) / (binPoints[m + 2] - binPoints[m + 1]);
+      }
+      return filter;
+    });
+  }
+
+  _hz2mel(hz) { return 2595 * Math.log10(1 + hz / 700); }
+  _mel2hz(mel) { return 700 * (Math.pow(10, mel / 2595) - 1); }
+
+  /* Rhythm: autocorrelation of energy envelope to detect periodicity */
+  _rhythmScore(rmsArr) {
+    const n = Math.min(rmsArr.length, 128);
+    const arr = rmsArr.slice(0, n);
+    const mean = this._mean(arr);
+    const centered = arr.map(v => v - mean);
+
+    let acf0 = centered.reduce((s, v) => s + v * v, 0);
+    if (acf0 === 0) return 0;
+
+    let maxAcf = 0;
+    for (let lag = 2; lag < n / 2; lag++) {
+      let acf = 0;
+      for (let i = 0; i + lag < n; i++) acf += centered[i] * centered[i + lag];
+      maxAcf = Math.max(maxAcf, acf / acf0);
+    }
+    return Math.max(0, Math.min(1, maxAcf));
+  }
+
+  /* How many cry bursts per second */
+  _onsetRate(rmsArr) {
+    const threshold = this._mean(rmsArr) + 0.5 * this._std(rmsArr);
+    let onsets = 0;
+    let wasAbove = false;
+    for (const r of rmsArr) {
+      const above = r > threshold;
+      if (above && !wasAbove) onsets++;
+      wasAbove = above;
+    }
+    // frames are hopSize / sampleRate seconds each
+    const durationSec = rmsArr.length * (this.hopSize / this.sampleRate);
+    return durationSec > 0 ? onsets / durationSec : 0;
+  }
+
+  /* Fraction of time actively crying vs silent */
+  _cryBurstRatio(rmsArr) {
+    const threshold = 0.015;
+    return rmsArr.filter(r => r > threshold).length / rmsArr.length;
+  }
+
+  _mean(arr) {
+    if (!arr || arr.length === 0) return 0;
+    return arr.reduce((s, v) => s + v, 0) / arr.length;
+  }
+
+  _std(arr) {
+    if (!arr || arr.length < 2) return 0;
+    const m = this._mean(arr);
+    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
+  }
+
+  _colMeans(matrix) {
+    if (matrix.length === 0) return new Array(this.numMFCC).fill(0);
+    const means = new Array(matrix[0].length).fill(0);
+    for (const row of matrix) row.forEach((v, i) => means[i] += v / matrix.length);
+    return means;
+  }
+}
