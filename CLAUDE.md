@@ -4,35 +4,80 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Hushh** is a baby vocalization analysis application. It classifies infant cry patterns (hunger, pain, fatigue, etc.) using audio signal processing and ML. Babies produce physiologically distinct sounds for different states — e.g., "Neh" for hunger (tongue-palate reflex), "Owh" for tiredness (yawn reflex).
+**Hushh** is a baby cry analyzer — a Progressive Web App that classifies infant vocalizations (hunger, pain, fatigue, etc.) entirely on-device. No audio ever leaves the device. The entire app is vanilla HTML/CSS/JS with no build step.
 
-## Planned Architecture
+## Running Locally
 
-- **Frontend:** Next.js (TypeScript) — real-time audio capture and feedback UI
-- **ML layer:** Audio classification model (edge inference preferred, cloud fallback)
-- **Backend API:** Node.js — serves predictions and stores session data
-- **Deployment:** Vercel (frontend), edge-first inference
-
-The system prioritizes low-latency feedback: classify audio on-device when possible, fall back to a cloud endpoint for heavier models.
-
-## Development Commands
-
-> This project is in early setup — commands below should be added here as infrastructure is established.
+HTTPS or `localhost` is required for `getUserMedia` (microphone access):
 
 ```bash
-# Expected once package.json exists:
-npm install       # install dependencies
-npm run dev       # start Next.js dev server
-npm run build     # production build
-npm run lint      # lint
-npm test          # run tests
+# Python (zero install)
+python3 -m http.server 8080
+
+# Node.js
+npx serve .
 ```
+
+Open `http://localhost:8080` in a browser. The service worker and PWA install banner only activate on HTTPS in production.
+
+## Generating Icons
+
+```bash
+npm install canvas
+node generate-icons.cjs
+# Outputs icons/icon-192.png and icons/icon-512.png
+```
+
+There is no other build step, `npm run dev`, or test suite.
+
+## Architecture
+
+The app is five plain ES modules — no bundler, no framework:
+
+```
+index.html          PWA shell; loads TF.js from CDN, then app.js as a module
+style.css           Single design system (CSS custom properties, warm theme)
+app.js              Main controller: state machine, recording, UI, history
+audio-analyzer.js   AudioAnalyzer class — all acoustic feature extraction
+cry-model.js        TF.js model definition + heuristic classifier
+sw.js               Service worker — cache-first offline strategy
+manifest.json       PWA manifest (installable, portrait lock, shortcuts)
+```
+
+### Audio Pipeline
+
+`AudioAnalyzer` (audio-analyzer.js) processes raw PCM via Web Audio API:
+- **Frame/hop**: 2048 samples / 512 hop at 44 100 Hz
+- **Features extracted per frame**: RMS energy, ZCR, spectral centroid, pitch (McLeod Pitch Method), 13 MFCCs via mel filter bank + DCT-II
+- **Aggregated stats**: mean/std/max + rhythm score (autocorrelation of energy envelope), onset rate, cry burst ratio
+- **Output**: a 25-dimensional feature vector passed to the classifier
+
+`blobToFeatures()` decodes a recorded `Blob` via `OfflineAudioContext`; `createStreamAnalyzer()` wraps a live `MediaStream` for real-time waveform visualization.
+
+### Classifier (cry-model.js)
+
+Two-stage classification:
+1. **Heuristic** (`heuristicClassify`): rule-based scoring on acoustic features, grounded in infant cry research. Always runs.
+2. **TF.js neural net** (`buildModel`): 2-layer dense network (64→32→5 softmax). Only contributes when personalized weights exist in IndexedDB (`indexeddb://baby-cry-model`). Blended 60/40 (model/heuristic) when available.
+
+Classes: `hunger`, `tired`, `pain`, `diaper`, `attention`. Result marked uncertain when top confidence < 35% or margin to second class < 8 pp.
+
+### App State Machine (app.js)
+
+`state.phase` drives all UI: `idle → recording → processing → result`. Key flows:
+- **Recording**: `getUserMedia` → `MediaRecorder` (webm/opus preferred) + `createStreamAnalyzer` for live waveform → auto-stop at 30 s
+- **Analysis**: `blobToFeatures` → `classify` → `renderResult` → `saveToHistory` (localStorage, max 10 entries)
+- **Model boot**: tries `indexeddb://baby-cry-model`; falls back to `buildModel()` (heuristic-only mode)
+
+### Service Worker (sw.js)
+
+Cache name versioned as `baby-cry-v1.x`. Upgrade the version string when deploying changes to force cache invalidation. Local assets use cache-first with network fallback; TF.js CDN assets use cache-first (large, stable files).
 
 ## Key Domain Concepts
 
-- **Vocalization types:** hunger (Neh), pain (Heh), fatigue (Owh), discomfort (Eair), lower gas (Eh)
-- **Audio pipeline:** capture → preprocess (noise reduction, normalization) → feature extraction (MFCC or mel-spectrogram) → classify
-- **Edge vs. cloud trade-off:** TensorFlow.js / ONNX for edge; server-side for larger models
+- **Vocalization types**: hunger (Neh — tongue-palate reflex), pain (Heh), fatigue (Owh — yawn reflex), discomfort/diaper (Eair), attention
+- **Acoustic fingerprints**: pain → pitch > 450 Hz, high ZCR, sharp onsets; hunger → rhythmic (high rhythm score), 280–500 Hz; tired → lower pitch, low burst ratio, fewer onsets
+- **On-device fine-tuning**: call `model.fit(xs, ys)` then `model.save('indexeddb://baby-cry-model')` to persist personalized weights across sessions without any server
 
 ## Code Quality
 

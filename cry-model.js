@@ -18,7 +18,7 @@
    accuracy over time without any server involvement.
    ========================================================= */
 
-import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.esm.js';
+const tf = window.tf; // loaded as UMD global by index.html <script> tag
 
 export const LABELS = ['hunger', 'tired', 'pain', 'diaper', 'attention'];
 
@@ -45,7 +45,7 @@ export const NEED_META = {
     urgency:  'low',
     tips: [
       'Create a calm, dim environment and reduce stimulation',
-      'Try gentle rocking or swaying — mimics the womb's motion',
+      'Try gentle rocking or swaying — mimics the womb\'s motion',
       'Swaddle snugly to trigger the calming reflex',
       'White noise (fan, rain sounds) can mask startling stimuli',
       'Watch for sleepy cues: eye-rubbing, yawning, glazed look'

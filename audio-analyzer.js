@@ -37,9 +37,10 @@ export class AudioAnalyzer {
     // Per-frame features
     const rmsArr       = frames.map(f => this._rms(f));
     const zcrArr       = frames.map(f => this._zcr(f));
-    const centroidArr  = frames.map(f => this._spectralCentroid(f));
+    const mags         = frames.map(f => this._magnitude(f));
+    const centroidArr  = mags.map(m => this._spectralCentroid(m));
     const pitchArr     = frames.map(f => this._pitch(f));
-    const mfccMatrix   = frames.map(f => this._mfcc(f));
+    const mfccMatrix   = mags.map(m => this._mfcc(m));
 
     // Aggregate statistics
     const features = {
@@ -171,8 +172,7 @@ export class AudioAnalyzer {
     return crossings / frame.length;
   }
 
-  _spectralCentroid(frame) {
-    const mag = this._magnitude(frame);
+  _spectralCentroid(mag) {
     let weightedSum = 0, totalMag = 0;
     for (let k = 0; k < mag.length; k++) {
       weightedSum += k * mag[k];
@@ -223,28 +223,56 @@ export class AudioAnalyzer {
   }
 
   _magnitude(frame) {
-    // Apply Hann window
-    const windowed = new Float32Array(frame.length);
-    for (let i = 0; i < frame.length; i++) {
-      windowed[i] = frame[i] * 0.5 * (1 - Math.cos(2 * Math.PI * i / (frame.length - 1)));
+    const n = frame.length;
+    const real = new Float32Array(n);
+    const imag = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      real[i] = frame[i] * 0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1)));
     }
-    // Real FFT via DFT (simple implementation — TF.js handles heavy lifting)
-    const half = frame.length / 2;
+    this._fft(real, imag);
+    const half = n / 2;
     const mag = new Float32Array(half);
     for (let k = 0; k < half; k++) {
-      let re = 0, im = 0;
-      for (let n = 0; n < frame.length; n++) {
-        const angle = 2 * Math.PI * k * n / frame.length;
-        re += windowed[n] * Math.cos(angle);
-        im -= windowed[n] * Math.sin(angle);
-      }
-      mag[k] = Math.sqrt(re * re + im * im);
+      mag[k] = Math.sqrt(real[k] * real[k] + imag[k] * imag[k]);
     }
     return mag;
   }
 
-  _mfcc(frame) {
-    const mag = this._magnitude(frame);
+  // Cooley-Tukey radix-2 DIT FFT (in-place). O(n log n) vs O(n²) naive DFT.
+  _fft(real, imag) {
+    const n = real.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        let t = real[i]; real[i] = real[j]; real[j] = t;
+        t = imag[i]; imag[i] = imag[j]; imag[j] = t;
+      }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len;
+      const wRe = Math.cos(ang), wIm = Math.sin(ang);
+      const hlen = len >> 1;
+      for (let i = 0; i < n; i += len) {
+        let curRe = 1, curIm = 0;
+        for (let j = 0; j < hlen; j++) {
+          const uRe = real[i + j], uIm = imag[i + j];
+          const vRe = real[i + j + hlen] * curRe - imag[i + j + hlen] * curIm;
+          const vIm = real[i + j + hlen] * curIm + imag[i + j + hlen] * curRe;
+          real[i + j]        = uRe + vRe;
+          imag[i + j]        = uIm + vIm;
+          real[i + j + hlen] = uRe - vRe;
+          imag[i + j + hlen] = uIm - vIm;
+          const newRe = curRe * wRe - curIm * wIm;
+          curIm = curRe * wIm + curIm * wRe;
+          curRe = newRe;
+        }
+      }
+    }
+  }
+
+  _mfcc(mag) {
     const melFilters = this._melFilterBank(mag.length);
     const melEnergies = melFilters.map(filter => {
       let e = 0;

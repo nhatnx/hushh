@@ -7,7 +7,7 @@
 
 import { AudioAnalyzer } from './audio-analyzer.js';
 import { classify, buildModel, NEED_META, LABELS, featuresToVector } from './cry-model.js';
-import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.esm.js';
+const tf = window.tf; // loaded as UMD global by index.html <script> tag
 
 /* ---- State ---- */
 const state = {
