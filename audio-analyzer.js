@@ -182,43 +182,63 @@ export class AudioAnalyzer {
     return (weightedSum / totalMag) * (this.sampleRate / this.frameSize);
   }
 
-  /* McLeod Pitch Method (MPM) — accurate fundamental frequency */
+  /* McLeod Pitch Method via FFT-based autocorrelation — O(n log n) */
   _pitch(frame) {
     const n = frame.length;
-    // Normalized Square Difference Function
-    const nsdf = new Float32Array(n);
-    for (let tau = 0; tau < n; tau++) {
-      let acf = 0, m = 0;
-      for (let i = 0; i + tau < n; i++) {
-        acf += frame[i] * frame[i + tau];
-        m += frame[i] * frame[i] + frame[i + tau] * frame[i + tau];
-      }
-      nsdf[tau] = m === 0 ? 0 : 2 * acf / m;
-    }
+    const fftSize = n * 2; // zero-pad to get linear (not circular) autocorrelation
 
-    // Find peaks in NSDF
-    const threshold = 0.8;
-    let maxVal = -Infinity, maxTau = -1;
+    // r[tau] = IFFT(|FFT(x)|²)[tau]
+    const real = new Float32Array(fftSize);
+    const imag = new Float32Array(fftSize);
+    for (let i = 0; i < n; i++) real[i] = frame[i];
+
+    this._fft(real, imag);
+    for (let k = 0; k < fftSize; k++) {
+      real[k] = real[k] * real[k] + imag[k] * imag[k];
+      imag[k] = 0;
+    }
+    this._fft(real, imag);
+    // IFFT via forward FFT: r[tau] = real[(fftSize - tau) & (fftSize-1)] / fftSize
+
+    // Prefix sums of x² allow O(1) NSDF normalization: m[tau] = sqSum[n-tau] + sqSum[n] - sqSum[tau]
+    const sqSum = new Float32Array(n + 1);
+    for (let i = 0; i < n; i++) sqSum[i + 1] = sqSum[i] + frame[i] * frame[i];
+
+    const acfAt  = tau => real[(fftSize - tau) & (fftSize - 1)] / fftSize;
+    const nsdfAt = tau => {
+      const m = sqSum[n - tau] + sqSum[n] - sqSum[tau];
+      return m === 0 ? 0 : 2 * acfAt(tau) / m;
+    };
+
+    // Only search lags that correspond to infant-cry frequencies (60–1200 Hz)
+    const tauMin = Math.floor(this.sampleRate / 1200); // ~37 samples
+    const tauMax = Math.min(Math.ceil(this.sampleRate / 60), n - 1); // ~735 samples
+
+    let maxNsdf = -Infinity, maxTau = -1;
     let inPositive = false;
-    for (let tau = 1; tau < n; tau++) {
-      if (nsdf[tau] > 0) { inPositive = true; }
-      if (inPositive && nsdf[tau] > threshold) {
-        if (nsdf[tau] > maxVal) { maxVal = nsdf[tau]; maxTau = tau; }
+
+    for (let tau = 1; tau <= tauMax; tau++) {
+      const nsdf = nsdfAt(tau);
+      if (nsdf > 0) inPositive = true;
+      if (inPositive && tau >= tauMin && nsdf > 0.8) {
+        if (nsdf > maxNsdf) { maxNsdf = nsdf; maxTau = tau; }
       }
-      if (inPositive && nsdf[tau] < 0) { inPositive = false; if (maxTau > 0) break; }
+      if (inPositive && nsdf < 0) {
+        inPositive = false;
+        if (maxTau > 0) break;
+      }
     }
 
     if (maxTau <= 0) return 0;
 
     // Parabolic interpolation for sub-sample accuracy
-    const y1 = maxTau > 0 ? nsdf[maxTau - 1] : 0;
-    const y2 = nsdf[maxTau];
-    const y3 = maxTau + 1 < n ? nsdf[maxTau + 1] : 0;
+    const y1 = nsdfAt(maxTau - 1);
+    const y2 = maxNsdf;
+    const y3 = nsdfAt(maxTau + 1);
     const denom = 2 * (2 * y2 - y1 - y3);
     const refined = denom === 0 ? maxTau : maxTau + (y1 - y3) / denom;
 
     const freq = this.sampleRate / refined;
-    // Infant cry fundamental is typically 250–600 Hz (can reach 1000 Hz in pain)
     return (freq >= 60 && freq <= 1200) ? freq : 0;
   }
 

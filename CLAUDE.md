@@ -44,6 +44,10 @@ sw.js               Service worker — cache-first offline strategy
 manifest.json       PWA manifest (installable, portrait lock, shortcuts)
 ```
 
+### TF.js loading
+
+TF.js is loaded as a UMD global via `<script src="...tf.min.js">` in `index.html`. **Do not add an ESM import of TF.js** (`tf.esm.js` does not exist in 4.17.0's dist). Both `app.js` and `cry-model.js` access it as `const tf = window.tf`.
+
 ### Audio Pipeline
 
 `AudioAnalyzer` (audio-analyzer.js) processes raw PCM via Web Audio API:
@@ -51,6 +55,10 @@ manifest.json       PWA manifest (installable, portrait lock, shortcuts)
 - **Features extracted per frame**: RMS energy, ZCR, spectral centroid, pitch (McLeod Pitch Method), 13 MFCCs via mel filter bank + DCT-II
 - **Aggregated stats**: mean/std/max + rhythm score (autocorrelation of energy envelope), onset rate, cry burst ratio
 - **Output**: a 25-dimensional feature vector passed to the classifier
+
+Magnitude spectrum is computed once per frame via `_magnitude()` (Cooley-Tukey radix-2 FFT in `_fft()`) and passed to both `_spectralCentroid()` and `_mfcc()`. Do not call `_magnitude()` inside those methods — it would reintroduce an O(n²) bottleneck.
+
+`_pitch()` also uses FFT-based autocorrelation (zero-padded to 4096, two FFT passes + prefix-sum normalization). Do not revert it to the direct NSDF nested loop — that is O(n²) per frame and will hang the main thread.
 
 `blobToFeatures()` decodes a recorded `Blob` via `OfflineAudioContext`; `createStreamAnalyzer()` wraps a live `MediaStream` for real-time waveform visualization.
 

@@ -161,6 +161,7 @@ export function heuristicClassify(features) {
     pitch_voiced = 0,
     rms_mean = 0,
     rms_std = 0,
+    rms_max = 0,
     zcr_mean = 0,
     centroid_mean = 0,
     centroid_std = 0,
