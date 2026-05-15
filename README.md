@@ -1,4 +1,4 @@
-# 🍼 Baby Cry Analyzer — PWA
+# 🍼 Hushh - Baby Cry Analyzer — PWA
 
 > **100% on-device.** No audio ever leaves the user's phone.
 

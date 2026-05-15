@@ -1,5 +1,5 @@
 /* =========================================================
-   app.js — Baby Cry Analyzer
+   app.js — Hushh
    Main application controller. All audio processing and
    inference happens entirely on-device via Web Audio API
    and TensorFlow.js. No data is sent to any server.
