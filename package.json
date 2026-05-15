@@ -1,7 +1,7 @@
 {
-  "name": "baby-cry-analyzer",
+  "name": "hushh",
   "version": "1.0.0",
-  "description": "AI baby cry analyzer (backend for HushH PWA)",
+  "description": "Hushh AI cry analyzer",
   "main": "server.js",
   "type": "module",
   "scripts": {

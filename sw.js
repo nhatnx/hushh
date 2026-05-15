@@ -1,15 +1,16 @@
 /* =========================================================
-   Baby Cry Analyzer — Service Worker
+   Hushh AI — Service Worker
    Strategy: Cache-first for assets, network-first for CDN libs
    ========================================================= */
 
-const CACHE_NAME = 'baby-cry-v1.2';
+const CACHE_NAME = 'hushh-v1.3';
 const STATIC_ASSETS = [
   '/index.html',
   '/style.css',
   '/app.js',
   '/audio-analyzer.js',
   '/cry-model.js',
+  '/train-worker.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png'

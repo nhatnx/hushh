@@ -23,10 +23,219 @@ const state = {
   history: JSON.parse(localStorage.getItem('babyCryHistory') || '[]'),
   deferredInstall: null,
   liveRms: new Array(60).fill(0),
-  localSessions: 0
+  localSessions: 0,
+  lossHistory: []
 };
 
 const analyzer = new AudioAnalyzer();
+
+/* ---- Training Queue (IndexedDB) ---- */
+const MIN_TRAIN_SAMPLES = 5;
+let trainWorker = null;
+
+function openTrainDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('hushh-training', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('queue', { autoIncrement: true });
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function enqueueSample(vector, labelIndex) {
+  const db = await openTrainDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('queue', 'readwrite');
+    tx.objectStore('queue').add({ vector: Array.from(vector), labelIndex });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getQueueCount() {
+  const db = await openTrainDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('queue', 'readonly');
+    const req = tx.objectStore('queue').count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function drainQueue() {
+  const db = await openTrainDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('queue', 'readwrite');
+    const store = tx.objectStore('queue');
+    const records = [];
+    store.openCursor().onsuccess = e => {
+      const c = e.target.result;
+      if (c) { records.push(c.value); c.delete(); c.continue(); }
+      else resolve(records);
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* ---- Feedback UI ---- */
+function renderFeedback(result) {
+  const el = document.createElement('div');
+  el.className = 'feedback-bar';
+  const uncertain = result.label === 'unknown';
+
+  el.innerHTML = `
+    <p class="fb-question">Was this reading correct?</p>
+    <div class="fb-btns${uncertain ? ' hidden' : ''}">
+      ${!uncertain ? '<button class="btn-fb btn-fb-yes">✓ Yes, correct</button>' : ''}
+      <button class="btn-fb btn-fb-no">✗ No, wrong</button>
+    </div>
+    <div class="label-picker${uncertain ? '' : ' hidden'}">
+      <p class="lp-prompt">${uncertain ? 'What was it?' : 'What was it actually?'}</p>
+      <div class="lp-grid">${LABELS.map((lbl, i) => {
+    const m = NEED_META[lbl];
+    return `<button class="btn-pick" data-idx="${i}" style="--c:${m.color};--bg:${m.bgLight}">${m.icon}<span>${m.label}</span></button>`;
+  }).join('')}</div>
+    </div>
+    <p class="fb-thanks hidden"></p>
+  `;
+
+  $('resultSection').appendChild(el);
+
+  const btnsEl = el.querySelector('.fb-btns');
+  const pickerEl = el.querySelector('.label-picker');
+  const thanksEl = el.querySelector('.fb-thanks');
+
+  const dismiss = msg => {
+    btnsEl.classList.add('hidden');
+    pickerEl.classList.add('hidden');
+    thanksEl.textContent = msg;
+    thanksEl.classList.remove('hidden');
+  };
+
+  const submit = async labelIndex => {
+    el.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try {
+      await enqueueSample(featuresToVector(result.features), labelIndex);
+      const count = await getQueueCount();
+      dismiss(count >= MIN_TRAIN_SAMPLES
+        ? `Thanks! Starting training with ${count} samples…`
+        : `Saved! ${count} of ${MIN_TRAIN_SAMPLES} needed to retrain.`);
+      if (count >= MIN_TRAIN_SAMPLES) checkAndTrain();
+    } catch (err) {
+      dismiss('Thanks! (Save failed: ' + err.message + ')');
+    }
+  };
+
+  el.querySelector('.btn-fb-yes')?.addEventListener('click', () => {
+    const idx = LABELS.indexOf(result.label);
+    if (idx >= 0) submit(idx);
+  });
+
+  el.querySelector('.btn-fb-no')?.addEventListener('click', () => {
+    pickerEl.classList.remove('hidden');
+  });
+
+  el.querySelectorAll('.btn-pick').forEach(btn =>
+    btn.addEventListener('click', () => submit(+btn.dataset.idx))
+  );
+}
+
+/* ---- Training Orchestration ---- */
+async function checkAndTrain() {
+  if (trainWorker) return;
+  let records;
+  try { records = await drainQueue(); } catch { return; }
+  if (records.length < MIN_TRAIN_SAMPLES) return;
+
+  showTrainingPanel();
+
+  trainWorker = new Worker('./train-worker.js');
+  trainWorker.postMessage({
+    vectors: records.map(r => r.vector),
+    labelIndices: records.map(r => r.labelIndex)
+  });
+
+  trainWorker.onmessage = async ({ data }) => {
+    if (data.type === 'progress') {
+      updateTrainingPanel(data.epoch, data.epochs, data.loss);
+    } else if (data.type === 'done') {
+      trainWorker.terminate(); trainWorker = null;
+      finishTrainingPanel(data.success
+        ? '✓ Model updated — results will improve.'
+        : 'Training failed: ' + (data.error || 'unknown'));
+      if (data.success) await loadTFModel();
+    }
+  };
+
+  trainWorker.onerror = err => {
+    trainWorker.terminate(); trainWorker = null;
+    finishTrainingPanel('Worker error: ' + err.message);
+  };
+}
+
+function getOrCreatePanel() {
+  let p = $('trainingPanel');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'trainingPanel';
+    p.className = 'training-panel hidden';
+    p.innerHTML = `
+      <div class="tp-head">
+        <span class="tp-title">🧠 Training on-device…</span>
+        <span class="tp-ep" id="tpEp"></span>
+      </div>
+      <div class="tp-track"><div class="tp-fill" id="tpFill"></div></div>
+      <canvas class="tp-loss" id="tpLoss"></canvas>
+      <p class="tp-status" id="tpStatus">Fitting on your feedback…</p>
+    `;
+    document.querySelector('.app-shell').appendChild(p);
+  }
+  return p;
+}
+
+function showTrainingPanel() {
+  state.lossHistory = [];
+  getOrCreatePanel().classList.remove('hidden');
+  $('tpFill').style.width = '0%';
+  $('tpStatus').textContent = 'Fitting on your feedback…';
+  $('tpEp').textContent = '';
+  $('trainingPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateTrainingPanel(epoch, epochs, loss) {
+  $('tpEp').textContent = `Epoch ${epoch} / ${epochs}`;
+  $('tpFill').style.width = `${Math.round(epoch / epochs * 100)}%`;
+  state.lossHistory.push(loss);
+  drawLoss();
+}
+
+function finishTrainingPanel(msg) {
+  $('tpFill').style.width = '100%';
+  $('tpStatus').textContent = msg;
+  $('tpEp').textContent = '';
+  setTimeout(() => getOrCreatePanel().classList.add('hidden'), 5000);
+}
+
+function drawLoss() {
+  const canvas = $('tpLoss');
+  if (!canvas || state.lossHistory.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 280, H = 40;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const losses = state.lossHistory;
+  const max = Math.max(...losses), min = Math.min(...losses);
+  const range = max - min || 0.001;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = '#d4785a'; ctx.lineWidth = 1.5; ctx.beginPath();
+  losses.forEach((l, i) => {
+    const x = (i / (losses.length - 1)) * W;
+    const y = H - 4 - ((l - min) / range) * (H - 10);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
 
 /* ---- DOM refs ---- */
 const $ = id => document.getElementById(id);
@@ -101,8 +310,8 @@ function setModelStatus(status, msg) {
   if (!badge) return;
   const labels = {
     loading: '⏳ Loading model...',
-    ready:   '🔒 On-device only',
-    error:   '⚠️ Fallback mode'
+    ready: '🔒 On-device only',
+    error: '⚠️ Fallback mode'
   };
   badge.textContent = msg || labels[status] || labels.ready;
   badge.dataset.status = status;
@@ -293,6 +502,7 @@ async function runAnalysis() {
     await new Promise(r => setTimeout(r, 300)); // brief pause for UX
 
     renderResult(result);
+    renderFeedback(result);
     saveToHistory(result);
 
     state.phase = 'result';
@@ -325,7 +535,7 @@ function renderResult(result) {
   };
 
   const urgencyColors = { high: '#e24b4a', medium: '#f4a940', low: '#4caf92' };
-  const urgencyLabel  = { high: 'Urgent', medium: 'Moderate', low: 'Gentle' };
+  const urgencyLabel = { high: 'Urgent', medium: 'Moderate', low: 'Gentle' };
 
   // Build probability bars for all labels
   const probBars = LABELS.map(lbl => {

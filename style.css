@@ -672,3 +672,147 @@ h3 { font-size: 18px; }
 @supports (padding: env(safe-area-inset-bottom)) {
   .app-shell { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
 }
+
+/* ---- Feedback Bar ---- */
+.feedback-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-top: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.fb-question {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.fb-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-fb {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text-soft);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.btn-fb:hover:not(:disabled)  { transform: translateY(-1px); }
+.btn-fb:active:not(:disabled) { transform: scale(0.97); }
+.btn-fb:disabled { opacity: 0.45; cursor: default; }
+
+.btn-fb-yes { border-color: var(--sage); color: #3d7a50; background: var(--sage-light); }
+.btn-fb-yes:hover:not(:disabled) { background: #c4e0cc; }
+
+.btn-fb-no { border-color: var(--terra-light); color: var(--terra-dark); background: var(--terra-bg); }
+.btn-fb-no:hover:not(:disabled) { background: #f5d9ce; }
+
+.label-picker { margin-top: 14px; }
+
+.lp-prompt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.btn-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  background-color: var(--bg);
+  color: var(--c);
+  font-family: 'Nunito', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.btn-pick span { text-align: center; }
+.btn-pick:hover:not(:disabled)  { border-color: var(--c); transform: translateY(-1px); }
+.btn-pick:active:not(:disabled) { transform: scale(0.95); }
+.btn-pick:disabled { opacity: 0.45; cursor: default; }
+
+.fb-thanks {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sage);
+  padding: 2px 0;
+}
+
+/* ---- Training Panel ---- */
+.training-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--terra);
+  border-radius: var(--radius-md);
+  padding: 16px 20px 14px;
+  margin-top: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.tp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tp-title { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.tp-ep    { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+.tp-track {
+  height: 6px;
+  background: var(--terra-bg);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.tp-fill {
+  height: 100%;
+  background: var(--terra);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.35s ease;
+}
+
+.tp-loss {
+  display: block;
+  width: 100%;
+  height: 40px;
+  margin-bottom: 8px;
+}
+
+.tp-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}
