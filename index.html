@@ -23,6 +23,9 @@
 
   <link rel="stylesheet" href="style.css">
 
+  <!-- Apply saved theme before first paint to prevent flash -->
+  <script>(function(){document.documentElement.dataset.theme=localStorage.getItem('hushh-theme')||'system';})();</script>
+
   <!-- TensorFlow.js — loaded early to warm up WASM backend -->
   <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js">
 </head>
@@ -34,6 +37,7 @@
 
     <!-- Header -->
     <header class="app-header">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">🌓</button>
       <div class="app-logo" aria-hidden="true">🍼</div>
       <h1 class="app-title">Hushh</h1>
       <p class="app-tagline">Understand what your little one needs</p>

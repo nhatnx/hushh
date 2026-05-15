@@ -11,29 +11,94 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  color-scheme: light dark;
+
+  /* Accent (unchanged in dark mode) */
   --terra:       #d4785a;
   --terra-dark:  #b85c42;
+  --sage:        #7aab8a;
+  --gold:        #d4a84b;
+  --muted-blue:  #7a9fc4;
+
+  /* Surface & tint tokens — overridden in dark mode */
   --terra-light: #f2d5c8;
   --terra-bg:    #fdf0eb;
   --cream:       #fdf8f4;
   --surface:     #ffffff;
-  --sage:        #7aab8a;
   --sage-light:  #d8eedf;
-  --gold:        #d4a84b;
   --gold-light:  #f8edcc;
-  --muted-blue:  #7a9fc4;
   --blue-light:  #daeaf5;
+
+  /* Text tokens — overridden in dark mode */
   --text:        #2e1f14;
   --text-soft:   #6b4c38;
   --text-muted:  #a07a65;
+
+  /* Semantic text on tinted backgrounds — overridden in dark mode */
+  --privacy-text:      #3d7a50;
+  --banner-title-text: #2a6040;
+  --banner-sub-text:   #4a9065;
+  --uncertain-text:    #7a5a10;
+
+  /* Border / shadow — overridden in dark mode */
   --border:      rgba(212, 120, 90, 0.14);
   --border-soft: rgba(46, 31, 20, 0.08);
   --shadow-sm:   0 2px 12px rgba(46,31,20,0.06);
   --shadow-md:   0 6px 28px rgba(46,31,20,0.10);
+
   --radius-sm:   10px;
   --radius-md:   16px;
   --radius-lg:   24px;
   --radius-xl:   32px;
+}
+
+/* ---- Dark-mode tokens ---- */
+/* Applied when user explicitly chose dark */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --terra-light: #5c2e22;
+  --terra-bg:    #2d1f18;
+  --cream:       #1c1310;
+  --surface:     #251a16;
+  --sage-light:  #152b1c;
+  --gold-light:  #211b0a;
+  --blue-light:  #101e2d;
+  --text:        #ede5dc;
+  --text-soft:   #c4a595;
+  --text-muted:  #876655;
+  --privacy-text:      #7aab8a;
+  --banner-title-text: #7aab8a;
+  --banner-sub-text:   #7aab8a;
+  --uncertain-text:    #d4a84b;
+  --border:      rgba(212, 120, 90, 0.25);
+  --border-soft: rgba(237, 229, 220, 0.10);
+  --shadow-sm:   0 2px 12px rgba(0,0,0,0.35);
+  --shadow-md:   0 6px 28px rgba(0,0,0,0.55);
+}
+
+/* Applied when user chose "system" and OS prefers dark */
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] {
+    color-scheme: dark;
+    --terra-light: #5c2e22;
+    --terra-bg:    #2d1f18;
+    --cream:       #1c1310;
+    --surface:     #251a16;
+    --sage-light:  #152b1c;
+    --gold-light:  #211b0a;
+    --blue-light:  #101e2d;
+    --text:        #ede5dc;
+    --text-soft:   #c4a595;
+    --text-muted:  #876655;
+    --privacy-text:      #7aab8a;
+    --banner-title-text: #7aab8a;
+    --banner-sub-text:   #7aab8a;
+    --uncertain-text:    #d4a84b;
+    --border:      rgba(212, 120, 90, 0.25);
+    --border-soft: rgba(237, 229, 220, 0.10);
+    --shadow-sm:   0 2px 12px rgba(0,0,0,0.35);
+    --shadow-md:   0 6px 28px rgba(0,0,0,0.55);
+  }
 }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -70,7 +135,30 @@ h3 { font-size: 18px; }
 .app-header {
   text-align: center;
   padding: 12px 0 28px;
+  position: relative;
 }
+
+.theme-toggle {
+  position: absolute;
+  top: 12px;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.theme-toggle:hover  { background: var(--terra-bg); border-color: var(--terra-light); transform: scale(1.08); }
+.theme-toggle:active { transform: scale(0.95); }
 
 .app-logo {
   width: 72px;
@@ -110,7 +198,7 @@ h3 { font-size: 18px; }
   gap: 6px;
   margin-top: 12px;
   background: var(--sage-light);
-  color: #3d7a50;
+  color: var(--privacy-text);
   font-size: 12px;
   font-weight: 600;
   padding: 5px 12px;
@@ -132,8 +220,8 @@ h3 { font-size: 18px; }
 
 .install-banner .banner-icon { font-size: 24px; }
 .install-banner .banner-text { flex: 1; }
-.install-banner .banner-title { font-weight: 600; font-size: 14px; color: #2a6040; display: block; }
-.install-banner .banner-sub   { font-size: 12px; color: #4a9065; }
+.install-banner .banner-title { font-weight: 600; font-size: 14px; color: var(--banner-title-text); display: block; }
+.install-banner .banner-sub   { font-size: 12px; color: var(--banner-sub-text); }
 
 .btn-install {
   background: var(--sage);
@@ -414,7 +502,7 @@ h3 { font-size: 18px; }
 .uncertain-notice {
   margin: 0 24px 16px;
   background: var(--gold-light);
-  color: #7a5a10;
+  color: var(--uncertain-text);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-size: 13px;

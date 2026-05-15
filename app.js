@@ -237,6 +237,17 @@ function drawLoss() {
   ctx.stroke();
 }
 
+/* ---- Theme ---- */
+const THEME_CYCLE = ['system', 'light', 'dark'];
+const THEME_ICONS  = { system: '🌓', light: '☀️', dark: '🌙' };
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('hushh-theme', theme);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = THEME_ICONS[theme];
+}
+
 /* ---- DOM refs ---- */
 const $ = id => document.getElementById(id);
 
@@ -258,6 +269,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('analyzeBtn').addEventListener('click', runAnalysis);
   $('uploadTrigger').addEventListener('click', () => $('fileInput').click());
   $('clearHistoryBtn')?.addEventListener('click', clearHistory);
+
+  // Theme toggle — sync icon with current state, then cycle on click
+  const themeBtn = $('themeToggle');
+  if (themeBtn) {
+    themeBtn.textContent = THEME_ICONS[document.documentElement.dataset.theme] ?? THEME_ICONS.system;
+    themeBtn.addEventListener('click', () => {
+      const cur = document.documentElement.dataset.theme || 'system';
+      applyTheme(THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length]);
+    });
+  }
 });
 
 /* ---- Service Worker ---- */
