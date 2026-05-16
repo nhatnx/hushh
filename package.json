@@ -1,18 +1,8 @@
 {
   "name": "hushh",
   "version": "1.0.0",
-  "description": "Hushh AI cry analyzer",
-  "main": "server.js",
-  "type": "module",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
-  },
-  "dependencies": {
-    "canvas": "^3.2.3",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "multer": "^2.1.1",
-    "onnxruntime-node": "^1.26.0"
+  "description": "Hushh AI cry analyzer — on-device baby cry classification PWA",
+  "devDependencies": {
+    "canvas": "^3.2.3"
   }
 }

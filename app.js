@@ -10,6 +10,21 @@ import { classify, buildModel, NEED_META, LABELS, featuresToVector } from './cry
 const tf = window.tf; // loaded as UMD global by index.html <script> tag
 
 /* ---- State ---- */
+
+// Allowlists used to validate history entries loaded from localStorage
+const VALID_HISTORY_LABELS = new Set(['hunger', 'tired', 'pain', 'diaper', 'attention', 'unknown']);
+const COLOR_HEX_RE = /^#[0-9a-fA-F]{3,6}$/;
+
+function sanitizeHistory(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(h =>
+    h && typeof h === 'object' &&
+    VALID_HISTORY_LABELS.has(h.label) &&
+    typeof h.confidence === 'number' &&
+    COLOR_HEX_RE.test(h.color ?? '')
+  );
+}
+
 const state = {
   phase: 'idle',        // idle | recording | processing | result
   audioBlob: null,
@@ -20,7 +35,7 @@ const state = {
   timerInterval: null,
   animFrame: null,
   model: null,
-  history: JSON.parse(localStorage.getItem('babyCryHistory') || '[]'),
+  history: sanitizeHistory(JSON.parse(localStorage.getItem('babyCryHistory') || '[]')),
   deferredInstall: null,
   liveRms: new Array(60).fill(0),
   localSessions: 0,
@@ -682,16 +697,36 @@ function renderHistory() {
   }
   section?.classList.remove('hidden');
 
-  container.innerHTML = state.history.map((h, i) => `
-    <div class="history-item" style="animation-delay:${i * 0.05}s">
-      <span class="h-icon">${h.icon}</span>
-      <div class="h-info">
-        <span class="h-label">${h.displayLabel}</span>
-        <span class="h-time">${h.date} · ${h.time}</span>
-      </div>
-      <span class="h-confidence" style="color:${h.color}">${h.confidence}%</span>
-    </div>
-  `).join('');
+  container.textContent = '';
+  state.history.forEach((h, i) => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.style.animationDelay = `${i * 0.05}s`;
+
+    const icon = document.createElement('span');
+    icon.className = 'h-icon';
+    icon.textContent = h.icon;
+
+    const info = document.createElement('div');
+    info.className = 'h-info';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'h-label';
+    lbl.textContent = h.displayLabel;
+
+    const time = document.createElement('span');
+    time.className = 'h-time';
+    time.textContent = `${h.date} · ${h.time}`;
+
+    const conf = document.createElement('span');
+    conf.className = 'h-confidence';
+    conf.style.color = COLOR_HEX_RE.test(h.color) ? h.color : '#888';
+    conf.textContent = `${h.confidence}%`;
+
+    info.append(lbl, time);
+    item.append(icon, info, conf);
+    container.appendChild(item);
+  });
 }
 
 function clearHistory() {
