@@ -7,6 +7,7 @@
 
 import { AudioAnalyzer } from './audio-analyzer.js';
 import { classify, buildModel, NEED_META, LABELS, featuresToVector } from './cry-model.js';
+import { t, setLanguage, getLanguage, SUPPORTED_LANGS } from './i18n.js';
 const tf = window.tf; // loaded as UMD global by index.html <script> tag
 
 /* ---- State ---- */
@@ -39,7 +40,10 @@ const state = {
   deferredInstall: null,
   liveRms: new Array(60).fill(0),
   localSessions: 0,
-  lossHistory: []
+  lossHistory: [],
+  lastResult: null,
+  modelStatusKey: 'loading',
+  modelStatusMsg: null
 };
 
 const analyzer = new AudioAnalyzer();
@@ -99,16 +103,16 @@ function renderFeedback(result) {
   const uncertain = result.label === 'unknown';
 
   el.innerHTML = `
-    <p class="fb-question">Was this reading correct?</p>
+    <p class="fb-question">${t('feedback.question')}</p>
     <div class="fb-btns${uncertain ? ' hidden' : ''}">
-      ${!uncertain ? '<button class="btn-fb btn-fb-yes">✓ Yes, correct</button>' : ''}
-      <button class="btn-fb btn-fb-no">✗ No, wrong</button>
+      ${!uncertain ? `<button class="btn-fb btn-fb-yes">${t('feedback.yes')}</button>` : ''}
+      <button class="btn-fb btn-fb-no">${t('feedback.no')}</button>
     </div>
     <div class="label-picker${uncertain ? '' : ' hidden'}">
-      <p class="lp-prompt">${uncertain ? 'What was it?' : 'What was it actually?'}</p>
+      <p class="lp-prompt">${uncertain ? t('feedback.picker.initial') : t('feedback.picker.correct')}</p>
       <div class="lp-grid">${LABELS.map((lbl, i) => {
     const m = NEED_META[lbl];
-    return `<button class="btn-pick" data-idx="${i}" style="--c:${m.color};--bg:${m.bgLight}">${m.icon}<span>${m.label}</span></button>`;
+    return `<button class="btn-pick" data-idx="${i}" style="--c:${m.color};--bg:${m.bgLight}">${m.icon}<span>${t('need.' + lbl + '.label')}</span></button>`;
   }).join('')}</div>
     </div>
     <p class="fb-thanks hidden"></p>
@@ -133,11 +137,11 @@ function renderFeedback(result) {
       await enqueueSample(featuresToVector(result.features), labelIndex);
       const count = await getQueueCount();
       dismiss(count >= MIN_TRAIN_SAMPLES
-        ? `Thanks! Starting training with ${count} samples…`
-        : `Saved! ${count} of ${MIN_TRAIN_SAMPLES} needed to retrain.`);
+        ? t('feedback.training-start', { count })
+        : t('feedback.saved', { count, total: MIN_TRAIN_SAMPLES }));
       if (count >= MIN_TRAIN_SAMPLES) checkAndTrain();
     } catch (err) {
-      dismiss('Thanks! (Save failed: ' + err.message + ')');
+      dismiss(t('feedback.save-error', { err: err.message }));
     }
   };
 
@@ -176,15 +180,15 @@ async function checkAndTrain() {
     } else if (data.type === 'done') {
       trainWorker.terminate(); trainWorker = null;
       finishTrainingPanel(data.success
-        ? '✓ Model updated — results will improve.'
-        : 'Training failed: ' + (data.error || 'unknown'));
+        ? t('training.done-ok')
+        : t('training.done-fail', { err: data.error || 'unknown' }));
       if (data.success) await loadTFModel();
     }
   };
 
   trainWorker.onerror = err => {
     trainWorker.terminate(); trainWorker = null;
-    finishTrainingPanel('Worker error: ' + err.message);
+    finishTrainingPanel(t('training.worker-error', { err: err.message }));
   };
 }
 
@@ -196,12 +200,12 @@ function getOrCreatePanel() {
     p.className = 'training-panel hidden';
     p.innerHTML = `
       <div class="tp-head">
-        <span class="tp-title">🧠 Training on-device…</span>
+        <span class="tp-title">${t('training.title')}</span>
         <span class="tp-ep" id="tpEp"></span>
       </div>
       <div class="tp-track"><div class="tp-fill" id="tpFill"></div></div>
       <canvas class="tp-loss" id="tpLoss"></canvas>
-      <p class="tp-status" id="tpStatus">Fitting on your feedback…</p>
+      <p class="tp-status" id="tpStatus">${t('training.fitting')}</p>
     `;
     document.querySelector('.app-shell').appendChild(p);
   }
@@ -212,13 +216,13 @@ function showTrainingPanel() {
   state.lossHistory = [];
   getOrCreatePanel().classList.remove('hidden');
   $('tpFill').style.width = '0%';
-  $('tpStatus').textContent = 'Fitting on your feedback…';
+  $('tpStatus').textContent = t('training.fitting');
   $('tpEp').textContent = '';
   $('trainingPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function updateTrainingPanel(epoch, epochs, loss) {
-  $('tpEp').textContent = `Epoch ${epoch} / ${epochs}`;
+  $('tpEp').textContent = t('training.epoch', { epoch, epochs });
   $('tpFill').style.width = `${Math.round(epoch / epochs * 100)}%`;
   state.lossHistory.push(loss);
   drawLoss();
@@ -252,6 +256,31 @@ function drawLoss() {
   ctx.stroke();
 }
 
+/* ---- i18n ---- */
+function translatePage() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+}
+
+function applyLang(lang) {
+  setLanguage(lang);
+  translatePage();
+  updateRecordUI();
+  updatePrivacyBadge();
+  updateAnalyzeBtn(state.phase === 'processing');
+  setModelStatus(state.modelStatusKey, state.modelStatusMsg);
+  renderSessionCount();
+  renderHistory();
+  if (state.lastResult) {
+    $('resultSection').innerHTML = '';
+    renderResult(state.lastResult);
+    renderFeedback(state.lastResult);
+  }
+  const btn = $('langToggle');
+  if (btn) btn.textContent = lang === 'vi' ? 'EN' : 'VI';
+}
+
 /* ---- Theme ---- */
 const THEME_CYCLE = ['system', 'light', 'dark'];
 const THEME_ICONS  = { system: '🌓', light: '☀️', dark: '🌙' };
@@ -270,8 +299,7 @@ const $ = id => document.getElementById(id);
 document.addEventListener('DOMContentLoaded', async () => {
   registerServiceWorker();
   setupInstallPrompt();
-  renderHistory();
-  updatePrivacyBadge();
+  applyLang(getLanguage());
   await loadTFModel();
 
   // Auto-start record if deep-linked
@@ -292,6 +320,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     themeBtn.addEventListener('click', () => {
       const cur = document.documentElement.dataset.theme || 'system';
       applyTheme(THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length]);
+    });
+  }
+
+  // Language toggle — cycle through supported languages
+  const langBtn = $('langToggle');
+  if (langBtn) {
+    langBtn.addEventListener('click', () => {
+      const cur = getLanguage();
+      const next = SUPPORTED_LANGS[(SUPPORTED_LANGS.indexOf(cur) + 1) % SUPPORTED_LANGS.length];
+      applyLang(next);
     });
   }
 });
@@ -329,27 +367,22 @@ function setupInstallPrompt() {
 async function loadTFModel() {
   try {
     setModelStatus('loading');
-    // Try to load saved model from IndexedDB (user-trained)
     state.model = await tf.loadLayersModel('indexeddb://baby-cry-model');
-    setModelStatus('ready', 'Personalized model loaded');
+    setModelStatus('ready', 'model.personalized');
     console.log('[App] Loaded saved TF.js model from IndexedDB');
   } catch {
-    // No saved model — build architecture for future training
     state.model = buildModel(25);
-    setModelStatus('ready', 'Ready (acoustic analysis mode)');
+    setModelStatus('ready', 'model.heuristic');
     console.log('[App] Using heuristic analysis (no trained weights yet)');
   }
 }
 
-function setModelStatus(status, msg) {
+function setModelStatus(status, msgKey) {
+  state.modelStatusKey = status;
+  state.modelStatusMsg = msgKey ?? null;
   const badge = $('modelBadge');
   if (!badge) return;
-  const labels = {
-    loading: '⏳ Loading model...',
-    ready: '🔒 On-device only',
-    error: '⚠️ Fallback mode'
-  };
-  badge.textContent = msg || labels[status] || labels.ready;
+  badge.textContent = t(msgKey ?? ('model.' + status));
   badge.dataset.status = status;
 }
 
@@ -405,8 +438,8 @@ async function startRecording() {
     console.error('[App] Mic error:', err);
     showToast(
       err.name === 'NotAllowedError'
-        ? 'Microphone permission denied. Please allow access in your browser settings.'
-        : 'Could not access microphone: ' + err.message,
+        ? t('toast.mic-denied')
+        : t('toast.mic-error', { err: err.message }),
       'error'
     );
   }
@@ -434,20 +467,20 @@ function getSupportedMimeType() {
     'audio/mp4',
     'audio/wav'
   ];
-  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+  return types.find(mime => MediaRecorder.isTypeSupported(mime)) || '';
 }
 
 function onRecordingComplete() {
   const dur = state.recordingSeconds;
   if (dur < 2) {
-    showToast('Recording too short. Please record at least 2 seconds of crying.', 'warn');
+    showToast(t('toast.too-short'), 'warn');
     state.phase = 'idle';
     updateRecordUI();
     return;
   }
   state.phase = 'idle';
   updateRecordUI();
-  setAudioReady(`Recording ready (${dur}s)`);
+  setAudioReady(t('audio-ready.recording', { dur }));
   $('analyzeBtn').disabled = false;
 }
 
@@ -509,7 +542,7 @@ function handleFileUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
   if (!file.type.startsWith('audio/')) {
-    showToast('Please select an audio file.', 'error');
+    showToast(t('toast.not-audio'), 'error');
     return;
   }
   state.audioBlob = file;
@@ -527,14 +560,13 @@ async function runAnalysis() {
   $('resultSection').classList.add('hidden');
 
   try {
-    // Extract acoustic features entirely on-device
-    showProcessingStep('Extracting acoustic features…');
+    showProcessingStep(t('step.features'));
     const features = await analyzer.blobToFeatures(state.audioBlob);
 
-    showProcessingStep('Running on-device classifier…');
+    showProcessingStep(t('step.classify'));
     const result = await classify(features, state.model);
 
-    showProcessingStep('Preparing results…');
+    showProcessingStep(t('step.prepare'));
     await new Promise(r => setTimeout(r, 300)); // brief pause for UX
 
     renderResult(result);
@@ -547,7 +579,7 @@ async function runAnalysis() {
 
   } catch (err) {
     console.error('[App] Analysis error:', err);
-    showToast('Analysis failed: ' + err.message, 'error');
+    showToast(t('toast.analysis-failed', { err: err.message }), 'error');
     state.phase = 'idle';
   } finally {
     updateAnalyzeBtn(false);
@@ -561,25 +593,19 @@ function showProcessingStep(msg) {
 
 /* ---- Render result ---- */
 function renderResult(result) {
-  const meta = NEED_META[result.label] || {
-    label: 'Unclear',
-    icon: '🤔',
-    color: '#888',
-    bgLight: '#f5f5f5',
-    urgency: 'low',
-    tips: ['Ensure baby is comfortable', 'Try feeding, then changing, then holding']
-  };
+  state.lastResult = result;
 
+  const meta = NEED_META[result.label] || { icon: '🤔', color: '#888', bgLight: '#f5f5f5', urgency: 'low' };
   const urgencyColors = { high: '#e24b4a', medium: '#f4a940', low: '#4caf92' };
-  const urgencyLabel = { high: 'Urgent', medium: 'Moderate', low: 'Gentle' };
+  const displayLabel  = t('need.' + result.label + '.label');
+  const urgencyLevel  = t('urgency.' + meta.urgency);
 
-  // Build probability bars for all labels
   const probBars = LABELS.map(lbl => {
-    const m = NEED_META[lbl];
+    const m   = NEED_META[lbl];
     const pct = Math.round((result.probabilities[lbl] || 0) * 100);
     return `
       <div class="prob-row">
-        <span class="prob-label">${m.icon} ${m.label}</span>
+        <span class="prob-label">${m.icon} ${t('need.' + lbl + '.label')}</span>
         <div class="prob-bar-track">
           <div class="prob-bar-fill" style="width:${pct}%;background:${m.color}" data-pct="${pct}"></div>
         </div>
@@ -587,8 +613,9 @@ function renderResult(result) {
       </div>`;
   }).join('');
 
-  const tipsHtml = meta.tips.map(t =>
-    `<li class="tip-item"><span class="tip-dot" style="background:${meta.color}"></span>${t}</li>`
+  const tipCount = result.label === 'unknown' ? 2 : 5;
+  const tipsHtml = Array.from({ length: tipCount }, (_, i) =>
+    `<li class="tip-item"><span class="tip-dot" style="background:${meta.color}"></span>${t('need.' + result.label + '.tip.' + i)}</li>`
   ).join('');
 
   $('resultSection').innerHTML = `
@@ -599,13 +626,13 @@ function renderResult(result) {
           <span class="result-icon">${meta.icon}</span>
         </div>
         <div class="result-hero-text">
-          <h2 class="result-title">${meta.label}</h2>
+          <h2 class="result-title">${displayLabel}</h2>
           <div class="result-badges">
             <span class="badge" style="background:${meta.bgLight};color:${meta.color}">
-              ${result.confidence}% confidence
+              ${t('result.confidence', { pct: result.confidence })}
             </span>
             <span class="badge urgency-badge" style="background:${urgencyColors[meta.urgency]}1a;color:${urgencyColors[meta.urgency]}">
-              ${urgencyLabel[meta.urgency]} urgency
+              ${t('urgency.label', { level: urgencyLevel })}
             </span>
           </div>
         </div>
@@ -614,40 +641,40 @@ function renderResult(result) {
       ${result.isUncertain ? `
         <div class="uncertain-notice">
           <span>💡</span>
-          <span>Signal was mixed — try recording 5+ seconds with less background noise for a clearer reading.</span>
+          <span>${t('result.uncertain')}</span>
         </div>
       ` : ''}
 
       <div class="section-block">
-        <div class="section-label">What to do</div>
+        <div class="section-label">${t('result.what-to-do')}</div>
         <ul class="tips-list">${tipsHtml}</ul>
       </div>
 
       <details class="details-block">
-        <summary>Signal breakdown</summary>
+        <summary>${t('result.signal-breakdown')}</summary>
         <div class="prob-bars">${probBars}</div>
         <div class="feature-grid">
           <div class="feat-cell">
-            <span class="feat-name">Pitch</span>
+            <span class="feat-name">${t('result.feat.pitch')}</span>
             <span class="feat-val">${Math.round(result.features.pitch_mean)} Hz</span>
           </div>
           <div class="feat-cell">
-            <span class="feat-name">Rhythm</span>
+            <span class="feat-name">${t('result.feat.rhythm')}</span>
             <span class="feat-val">${Math.round(result.features.rhythm_score * 100)}%</span>
           </div>
           <div class="feat-cell">
-            <span class="feat-name">Active time</span>
+            <span class="feat-name">${t('result.feat.active-time')}</span>
             <span class="feat-val">${Math.round(result.features.cry_burst_ratio * 100)}%</span>
           </div>
           <div class="feat-cell">
-            <span class="feat-name">Onset rate</span>
+            <span class="feat-name">${t('result.feat.onset-rate')}</span>
             <span class="feat-val">${result.features.onset_rate.toFixed(1)}/s</span>
           </div>
         </div>
       </details>
 
       <div class="privacy-note">
-        <span>🔒</span> All analysis ran locally on your device. No audio was transmitted anywhere.
+        <span>🔒</span> ${t('result.privacy-note')}
       </div>
     </div>
   `;
@@ -673,7 +700,6 @@ function saveToHistory(result) {
   const meta = NEED_META[result.label] || {};
   const entry = {
     label: result.label,
-    displayLabel: meta.label || result.label,
     icon: meta.icon || '🤔',
     color: meta.color || '#888',
     confidence: result.confidence,
@@ -712,7 +738,7 @@ function renderHistory() {
 
     const lbl = document.createElement('span');
     lbl.className = 'h-label';
-    lbl.textContent = h.displayLabel;
+    lbl.textContent = t('need.' + h.label + '.label');
 
     const time = document.createElement('span');
     time.className = 'h-time';
@@ -744,19 +770,19 @@ function updateRecordUI() {
   if (state.phase === 'recording') {
     btn.classList.add('recording');
     btn.querySelector('.mic-icon').textContent = '⏹';
-    label.textContent = 'Tap to stop';
-    hint.textContent = 'Recording… up to 30 seconds';
+    label.textContent = t('record.btn.stop');
+    hint.textContent = t('record.hint.recording');
     $('waveSection').classList.remove('hidden');
   } else if (state.phase === 'processing') {
     btn.classList.remove('recording');
     btn.querySelector('.mic-icon').textContent = '⏳';
-    label.textContent = 'Processing…';
-    hint.textContent = 'Analyzing on-device…';
+    label.textContent = t('record.btn.processing');
+    hint.textContent = t('record.hint.processing');
   } else {
     btn.classList.remove('recording');
     btn.querySelector('.mic-icon').textContent = '🎙';
-    label.textContent = 'Record cry';
-    hint.textContent = 'Tap the button and hold your phone near the baby';
+    label.textContent = t('record.btn.idle');
+    hint.textContent = t('record.hint.idle');
     if (state.phase !== 'result') $('waveSection').classList.add('hidden');
     $('timerDisplay').textContent = '';
   }
@@ -771,24 +797,34 @@ function updateAnalyzeBtn(loading) {
   const btn = $('analyzeBtn');
   if (loading) {
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+    btn.textContent = t('analyze.btn.loading');
   } else {
     btn.disabled = !state.audioBlob;
-    btn.innerHTML = '🔍 Analyze cry';
+    btn.textContent = t('analyze.btn');
   }
 }
 
 function updatePrivacyBadge() {
   const el = $('privacyBadge');
-  if (el) el.textContent = '🔒 100% on-device · no cloud · no tracking';
+  if (el) el.textContent = t('privacy-badge');
 }
 
 function updateSessionCount() {
   const el = $('sessionCount');
-  if (el) {
-    const total = parseInt(localStorage.getItem('totalSessions') || '0') + 1;
-    localStorage.setItem('totalSessions', total);
-    el.textContent = total + ' session' + (total !== 1 ? 's' : '') + ' analyzed on this device';
+  if (!el) return;
+  const total = parseInt(localStorage.getItem('totalSessions') || '0') + 1;
+  localStorage.setItem('totalSessions', total);
+  el.classList.remove('hidden');
+  el.textContent = total === 1 ? t('session-count', { total }) : t('session-count.plural', { total });
+}
+
+function renderSessionCount() {
+  const el = $('sessionCount');
+  if (!el) return;
+  const total = parseInt(localStorage.getItem('totalSessions') || '0');
+  if (total > 0) {
+    el.classList.remove('hidden');
+    el.textContent = total === 1 ? t('session-count', { total }) : t('session-count.plural', { total });
   }
 }
 

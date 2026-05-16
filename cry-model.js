@@ -22,77 +22,13 @@ const tf = window.tf; // loaded as UMD global by index.html <script> tag
 
 export const LABELS = ['hunger', 'tired', 'pain', 'diaper', 'attention'];
 
+// Visual/structural metadata only — display text lives in i18n.js
 export const NEED_META = {
-  hunger: {
-    label:    'Hungry',
-    icon:     '🍼',
-    color:    '#e07a5f',
-    bgLight:  '#fdf0eb',
-    urgency:  'high',
-    tips: [
-      'Offer the breast or a bottle — feeding is the first thing to try',
-      'Check the last feeding time; hunger cries often peak every 2–3 hours',
-      'Watch for rooting reflex: baby turning head and opening mouth',
-      'If formula-fed, prepare a fresh bottle at body temperature',
-      'After feeding, hold upright for 15–20 min to help with gas'
-    ]
-  },
-  tired: {
-    label:    'Sleepy',
-    icon:     '😴',
-    color:    '#8b6bbf',
-    bgLight:  '#f0ecfb',
-    urgency:  'low',
-    tips: [
-      'Create a calm, dim environment and reduce stimulation',
-      'Try gentle rocking or swaying — mimics the womb\'s motion',
-      'Swaddle snugly to trigger the calming reflex',
-      'White noise (fan, rain sounds) can mask startling stimuli',
-      'Watch for sleepy cues: eye-rubbing, yawning, glazed look'
-    ]
-  },
-  pain: {
-    label:    'In pain or discomfort',
-    icon:     '😣',
-    color:    '#e24b4a',
-    bgLight:  '#fdecea',
-    urgency:  'high',
-    tips: [
-      'Check for any visible irritation: hair tourniquet on toes/fingers, diaper rash, clothing tags',
-      'If accompanied by fever (>38 °C / 100.4 °F), contact a doctor promptly',
-      'Try gas relief: bicycle legs, tummy massage clockwise, burping positions',
-      'Colic-like crying that lasts >3 h/day, >3 days/week warrants medical evaluation',
-      'Stay calm and hold baby firmly — your heartbeat soothes'
-    ]
-  },
-  diaper: {
-    label:    'Needs a diaper change',
-    icon:     '🩲',
-    color:    '#4caf92',
-    bgLight:  '#e6f5f0',
-    urgency:  'medium',
-    tips: [
-      'Check diaper immediately — wet or soiled diapers cause skin irritation quickly',
-      'Clean thoroughly front-to-back and allow air-dry before re-diapering',
-      'Apply barrier cream (zinc oxide) if any redness is present',
-      'Ensure diaper fit: snug at waist but two fingers should fit at the tummy',
-      'Newborns may need 8–12 changes per day — that\'s completely normal'
-    ]
-  },
-  attention: {
-    label:    'Wants attention & comfort',
-    icon:     '🤗',
-    color:    '#5b9bd5',
-    bgLight:  '#e8f1fb',
-    urgency:  'low',
-    tips: [
-      'Pick up and hold baby — you cannot spoil a newborn with too much holding',
-      'Skin-to-skin contact regulates temperature, heart rate, and cortisol',
-      'Make eye contact, smile, and talk softly — face recognition is calming',
-      'Try a short walk outside; fresh air and gentle movement often help',
-      'Offer a (clean) finger or pacifier to satisfy the sucking reflex'
-    ]
-  }
+  hunger:    { icon: '🍼', color: '#e07a5f', bgLight: '#fdf0eb', urgency: 'high' },
+  tired:     { icon: '😴', color: '#8b6bbf', bgLight: '#f0ecfb', urgency: 'low' },
+  pain:      { icon: '😣', color: '#e24b4a', bgLight: '#fdecea', urgency: 'high' },
+  diaper:    { icon: '🩲', color: '#4caf92', bgLight: '#e6f5f0', urgency: 'medium' },
+  attention: { icon: '🤗', color: '#5b9bd5', bgLight: '#e8f1fb', urgency: 'low' }
 };
 
 /* ----------------------------------------------------------
