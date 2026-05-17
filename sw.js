@@ -3,7 +3,7 @@
    Strategy: Cache-first for assets, network-first for CDN libs
    ========================================================= */
 
-const CACHE_NAME = 'hushh-v1.6';
+const CACHE_NAME = 'hushh-v1.7';
 const STATIC_ASSETS = [
   '/index.html',
   '/style.css',
@@ -11,6 +11,7 @@ const STATIC_ASSETS = [
   '/audio-analyzer.js',
   '/cry-model.js',
   '/i18n.js',
+  '/analytics.js',
   '/train-worker.js',
   '/manifest.json',
   '/icons/icon-192.png',
@@ -20,19 +21,21 @@ const STATIC_ASSETS = [
 // TF.js CDN assets — cache aggressively after first load
 const TFJS_ORIGIN = 'https://cdn.jsdelivr.net';
 
-self.addEventListener('install', event => {
+globalThis.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(STATIC_ASSETS).catch(err => {
+    caches.open(CACHE_NAME).then(async cache => {
+      try {
+        await cache.addAll(STATIC_ASSETS);
+      } catch (err) {
         // Individual failures shouldn't block install
         console.warn('[SW] Some assets failed to cache:', err);
-      });
+      }
     })
   );
-  self.skipWaiting();
+  globalThis.skipWaiting();
 });
 
-self.addEventListener('activate', event => {
+globalThis.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
@@ -45,10 +48,10 @@ self.addEventListener('activate', event => {
       )
     )
   );
-  self.clients.claim();
+  globalThis.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
+globalThis.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // Skip non-GET requests and browser-extension requests
@@ -77,7 +80,7 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        if (response.ok && url.origin === self.location.origin) {
+        if (response.ok && url.origin === globalThis.location.origin) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
@@ -93,6 +96,8 @@ self.addEventListener('fetch', event => {
 });
 
 // Background sync for when connectivity returns (future use)
-self.addEventListener('message', event => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+globalThis.addEventListener('message', event => {
+  if (!event.source) return;
+  if (new URL(event.source.url).origin !== globalThis.location.origin) return;
+  if (event.data === 'SKIP_WAITING') globalThis.skipWaiting();
 });

@@ -8,6 +8,7 @@
 import { AudioAnalyzer } from './audio-analyzer.js';
 import { classify, buildModel, NEED_META, LABELS, featuresToVector } from './cry-model.js';
 import { t, setLanguage, getLanguage, SUPPORTED_LANGS } from './i18n.js';
+import { trackEvent, trackFBEvent } from './analytics.js';
 const tf = window.tf; // loaded as UMD global by index.html <script> tag
 
 /* ---- State ---- */
@@ -147,7 +148,10 @@ function renderFeedback(result) {
 
   el.querySelector('.btn-fb-yes')?.addEventListener('click', () => {
     const idx = LABELS.indexOf(result.label);
-    if (idx >= 0) submit(idx);
+    if (idx >= 0) {
+      trackEvent('feedback_submit', { label: result.label, correct: true });
+      submit(idx);
+    }
   });
 
   el.querySelector('.btn-fb-no')?.addEventListener('click', () => {
@@ -155,7 +159,11 @@ function renderFeedback(result) {
   });
 
   el.querySelectorAll('.btn-pick').forEach(btn =>
-    btn.addEventListener('click', () => submit(+btn.dataset.idx))
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.idx;
+      trackEvent('feedback_submit', { label: LABELS[idx], correct: false });
+      submit(idx);
+    })
   );
 }
 
@@ -330,6 +338,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cur = getLanguage();
       const next = SUPPORTED_LANGS[(SUPPORTED_LANGS.indexOf(cur) + 1) % SUPPORTED_LANGS.length];
       applyLang(next);
+      trackEvent('language_change', { language: next });
     });
   }
 });
@@ -360,6 +369,7 @@ function setupInstallPrompt() {
 
   window.addEventListener('appinstalled', () => {
     $('installBanner').classList.add('hidden');
+    trackEvent('pwa_install');
   });
 }
 
@@ -428,6 +438,7 @@ async function startRecording() {
     };
 
     state.mediaRecorder.start(100);
+    trackEvent('recording_start');
 
     // UI updates
     updateRecordUI();
@@ -546,6 +557,7 @@ function handleFileUpload(e) {
     return;
   }
   state.audioBlob = file;
+  trackEvent('file_upload');
   setAudioReady(file.name);
   $('analyzeBtn').disabled = false;
   state.recordingSeconds = 0;
@@ -572,6 +584,13 @@ async function runAnalysis() {
     renderResult(result);
     renderFeedback(result);
     saveToHistory(result);
+
+    trackEvent('analysis_complete', {
+      need: result.label,
+      confidence: result.confidence,
+      uncertain: result.isUncertain
+    });
+    trackFBEvent('ViewContent', { content_name: result.label });
 
     state.phase = 'result';
     state.localSessions++;

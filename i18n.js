@@ -11,7 +11,7 @@ const LANGS = {
     // ---- Header ----
     tagline:               'Understand what your little one needs',
     'app.sr-title':        'Hushh — on-device AI baby cry analyzer',
-    'privacy-badge':       '🔒 100% on-device · no cloud · no tracking',
+    'privacy-badge':       '🔒 On-device AI · no audio sent to cloud',
 
     // ---- Install banner ----
     'install.title': 'Add to Home Screen',
@@ -140,7 +140,7 @@ const LANGS = {
     // ---- Header ----
     tagline:          'Hiểu điều bé yêu cần',
     'app.sr-title':   'Hushh — phân tích tiếng khóc bé trên thiết bị',
-    'privacy-badge':  '🔒 100% trên thiết bị · không đám mây · không theo dõi',
+    'privacy-badge':  '🔒 AI trên thiết bị · không gửi âm thanh lên đám mây',
 
     // ---- Install banner ----
     'install.title': 'Thêm vào màn hình chính',
