@@ -1,6 +1,10 @@
 # dependencies
 /node_modules
 
+# Next.js
+/.next
+/out
+
 # env files (never commit secrets)
 .env
 .env*.local

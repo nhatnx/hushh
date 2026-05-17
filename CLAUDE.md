@@ -4,53 +4,63 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Hushh** is a baby cry analyzer — a Progressive Web App that classifies infant vocalizations (hunger, pain, fatigue, etc.) entirely on-device. No audio ever leaves the device. The entire app is vanilla HTML/CSS/JS with no build step.
+**Hushh** is a baby cry analyzer — a Progressive Web App that classifies infant vocalizations (hunger, pain, fatigue, etc.) entirely on-device. No audio ever leaves the device. Built with **Next.js 15** (App Router, static export) + React 19. Business logic is bundled and minified — not directly viewable as source.
 
 ## Running Locally
 
-HTTPS or `localhost` is required for `getUserMedia` (microphone access):
-
 ```bash
-# Python (zero install)
-python3 -m http.server 8080
-
-# Node.js
-npx serve .
+npm install
+npm run dev
 ```
 
-Open `http://localhost:8080` in a browser. The service worker and PWA install banner only activate on HTTPS in production.
+Open `http://localhost:3000`. HTTPS is required in production for `getUserMedia`; localhost is exempt.
+
+## Build & Deploy
+
+```bash
+pnpm run build   # generates out/ (static export)
+```
+
+**Note for Windows:** The `Collecting page data` build phase calls `fs.readlink()` on module files. On certain Windows drives (NTFS with non-standard reparse-point behavior), this returns EISDIR for regular files — a Node.js/Windows bug. **Vercel builds on Linux where this does not occur.** To deploy: push to Git and let Vercel build in its cloud environment. Local `pnpm run dev` is unaffected and works normally.
 
 ## Generating Icons
 
 ```bash
-npm install canvas
-node generate-icons.cjs
-# Outputs icons/icon-192.png and icons/icon-512.png
+npm run icons   # runs generate-icons.cjs → public/icons/icon-192.png, icon-512.png
 ```
-
-There is no other build step, `npm run dev`, or test suite.
 
 ## Architecture
 
-The app is five plain ES modules — no bundler, no framework:
-
 ```
-index.html          PWA shell; loads TF.js from CDN, then app.js as a module
-style.css           Single design system (CSS custom properties, warm theme)
-app.js              Main controller: state machine, recording, UI, history
-audio-analyzer.js   AudioAnalyzer class — all acoustic feature extraction
-cry-model.js        TF.js model definition + heuristic classifier
-sw.js               Service worker — cache-first offline strategy
-manifest.json       PWA manifest (installable, portrait lock, shortcuts)
+app/
+  layout.tsx        HTML shell, meta tags, theme inline script
+  page.tsx          Renders <HushhApp>
+  globals.css       Design system (CSS custom properties, warm theme)
+
+components/
+  HushhApp.tsx      Client component — JSX structure + loads TF.js via <Script onLoad>
+
+lib/
+  app-logic.js      Main controller (state machine, recording, UI). Exports init().
+  audio-analyzer.js AudioAnalyzer class — acoustic feature extraction
+  cry-model.js      TF.js model definition + heuristic classifier
+  i18n.js           Translation dictionaries (en, vi) + t() helper
+  analytics.js      GA4 + Facebook Pixel initialization and trackEvent()
+
+public/
+  sw.js             Service worker — cache-first offline strategy (Next.js-aware)
+  train-worker.js   Web Worker for on-device model fine-tuning
+  manifest.json     PWA manifest (installable, portrait lock, shortcuts)
+  icons/            PWA icons (192 and 512)
 ```
 
 ### TF.js loading
 
-TF.js is loaded as a UMD global via `<script src="...tf.min.js">` in `index.html`. **Do not add an ESM import of TF.js** (`tf.esm.js` does not exist in 4.17.0's dist). Both `app.js` and `cry-model.js` access it as `const tf = window.tf`.
+TF.js is loaded as a UMD global via `<Script strategy="afterInteractive" onLoad={...}>` in `HushhApp.tsx`. The `onLoad` callback dynamically imports `lib/app-logic.js` and calls `init()`, ensuring `window.tf` is always defined before any app code runs. **Do not add an ESM import of TF.js** (`tf.esm.js` does not exist in 4.17.0's dist). Both `app-logic.js` and `cry-model.js` access it as `const tf = window.tf`.
 
 ### Audio Pipeline
 
-`AudioAnalyzer` (audio-analyzer.js) processes raw PCM via Web Audio API:
+`AudioAnalyzer` (lib/audio-analyzer.js) processes raw PCM via Web Audio API:
 - **Frame/hop**: 2048 samples / 512 hop at 44 100 Hz
 - **Features extracted per frame**: RMS energy, ZCR, spectral centroid, pitch (McLeod Pitch Method), 13 MFCCs via mel filter bank + DCT-II
 - **Aggregated stats**: mean/std/max + rhythm score (autocorrelation of energy envelope), onset rate, cry burst ratio
@@ -62,7 +72,7 @@ Magnitude spectrum is computed once per frame via `_magnitude()` (Cooley-Tukey r
 
 `blobToFeatures()` decodes a recorded `Blob` via `OfflineAudioContext`; `createStreamAnalyzer()` wraps a live `MediaStream` for real-time waveform visualization.
 
-### Classifier (cry-model.js)
+### Classifier (lib/cry-model.js)
 
 Two-stage classification:
 1. **Heuristic** (`heuristicClassify`): rule-based scoring on acoustic features, grounded in infant cry research. Always runs.
@@ -70,16 +80,18 @@ Two-stage classification:
 
 Classes: `hunger`, `tired`, `pain`, `diaper`, `attention`. Result marked uncertain when top confidence < 35% or margin to second class < 8 pp.
 
-### App State Machine (app.js)
+### App State Machine (lib/app-logic.js)
 
 `state.phase` drives all UI: `idle → recording → processing → result`. Key flows:
 - **Recording**: `getUserMedia` → `MediaRecorder` (webm/opus preferred) + `createStreamAnalyzer` for live waveform → auto-stop at 30 s
 - **Analysis**: `blobToFeatures` → `classify` → `renderResult` → `saveToHistory` (localStorage, max 10 entries)
 - **Model boot**: tries `indexeddb://baby-cry-model`; falls back to `buildModel()` (heuristic-only mode)
 
-### Service Worker (sw.js)
+The component (`HushhApp.tsx`) renders the HTML structure as JSX and never re-renders after mount (no state/props). All dynamic UI updates are direct DOM manipulation inside `app-logic.js`, which is safe since React never triggers a re-render.
 
-Cache name versioned as `baby-cry-v1.x`. Upgrade the version string when deploying changes to force cache invalidation. Local assets use cache-first with network fallback; TF.js CDN assets use cache-first (large, stable files).
+### Service Worker (public/sw.js)
+
+Cache name versioned as `hushh-v2.x`. Upgrade the version string when deploying changes to force cache invalidation. Handles three asset types: TF.js CDN (cache-first), Next.js hashed chunks `/_next/static/` (cache-first, immutable), and all other same-origin assets (cache-first with network fallback).
 
 ## Key Domain Concepts
 
