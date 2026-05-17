@@ -3,13 +3,14 @@
    Strategy: Cache-first for assets, network-first for CDN libs
    ========================================================= */
 
-const CACHE_NAME = 'hushh-v1.5';
+const CACHE_NAME = 'hushh-v1.6';
 const STATIC_ASSETS = [
   '/index.html',
   '/style.css',
   '/app.js',
   '/audio-analyzer.js',
   '/cry-model.js',
+  '/i18n.js',
   '/train-worker.js',
   '/manifest.json',
   '/icons/icon-192.png',

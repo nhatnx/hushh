@@ -37,10 +37,13 @@
 
     <!-- Header -->
     <header class="app-header">
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">🌓</button>
+      <div class="header-controls">
+        <button class="lang-toggle" id="langToggle" type="button" aria-label="Switch language">VI</button>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">🌓</button>
+      </div>
       <div class="app-logo" aria-hidden="true">🍼</div>
       <h1 class="app-title">Hushh</h1>
-      <p class="app-tagline">Understand what your little one needs</p>
+      <p class="app-tagline" data-i18n="tagline">Understand what your little one needs</p>
       <span class="privacy-pill" id="privacyBadge" aria-label="Privacy guarantee">
         🔒 Loading…
       </span>
@@ -50,10 +53,10 @@
     <div class="install-banner hidden" id="installBanner" role="complementary" aria-label="Install app">
       <span class="banner-icon" aria-hidden="true">📲</span>
       <div class="banner-text">
-        <strong class="banner-title">Add to Home Screen</strong>
-        <span class="banner-sub">Works offline · instant access</span>
+        <strong class="banner-title" data-i18n="install.title">Add to Home Screen</strong>
+        <span class="banner-sub" data-i18n="install.sub">Works offline · instant access</span>
       </div>
-      <button class="btn-install" id="installBtn" type="button">Install</button>
+      <button class="btn-install" id="installBtn" type="button" data-i18n="install.btn">Install</button>
     </div>
 
     <!-- Model status -->
@@ -86,11 +89,11 @@
     </section>
 
     <!-- Upload Alternative -->
-    <div class="or-divider" aria-hidden="true">or</div>
+    <div class="or-divider" aria-hidden="true" data-i18n="or">or</div>
 
     <button class="upload-btn" id="uploadTrigger" type="button" aria-label="Upload audio file">
       <span aria-hidden="true">📁</span>
-      Upload audio file (.wav · .mp3 · .m4a · .webm)
+      <span data-i18n="upload.btn">Upload audio file (.wav · .mp3 · .m4a · .webm)</span>
     </button>
     <input type="file" id="fileInput" accept="audio/*" style="display:none" aria-label="Audio file input">
 
@@ -112,8 +115,8 @@
     <!-- History -->
     <section class="history-section hidden" id="historySection" aria-label="Recent sessions">
       <div class="history-header">
-        <span class="section-title">Recent sessions</span>
-        <button class="btn-clear" id="clearHistoryBtn" type="button">Clear</button>
+        <span class="section-title" data-i18n="history.title">Recent sessions</span>
+        <button class="btn-clear" id="clearHistoryBtn" type="button" data-i18n="history.clear">Clear</button>
       </div>
       <div class="history-list" id="historyList"></div>
     </section>

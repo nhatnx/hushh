@@ -138,16 +138,22 @@ h3 { font-size: 18px; }
   position: relative;
 }
 
-.theme-toggle {
+.header-controls {
   position: absolute;
   top: 12px;
   right: 0;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.theme-toggle,
+.lang-toggle {
   width: 34px;
   height: 34px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -157,8 +163,12 @@ h3 { font-size: 18px; }
   color: var(--text-muted);
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
-.theme-toggle:hover  { background: var(--terra-bg); border-color: var(--terra-light); transform: scale(1.08); }
-.theme-toggle:active { transform: scale(0.95); }
+.theme-toggle { font-size: 16px; }
+.lang-toggle  { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+.theme-toggle:hover,
+.lang-toggle:hover  { background: var(--terra-bg); border-color: var(--terra-light); transform: scale(1.08); }
+.theme-toggle:active,
+.lang-toggle:active { transform: scale(0.95); }
 
 .app-logo {
   width: 72px;
