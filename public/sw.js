@@ -9,6 +9,7 @@ const CACHE_NAME = 'hushh-v2.0';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
+  '/favicon.ico',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/train-worker.js',

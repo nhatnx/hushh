@@ -33,8 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* manifest must be static in <head> — not via metadata export — so Chrome
             detects it during initial HTML parse for PWA installability checks */}
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         {/* Apply saved theme before first paint to prevent flash */}
         <script
           dangerouslySetInnerHTML={{
