@@ -1,8 +1,57 @@
 'use client';
 
+import { useEffect } from 'react';
 import Script from 'next/script';
 
 export default function HushhApp() {
+  useEffect(() => {
+    // Register SW immediately — independent of TF.js load
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[App] SW registered:', reg.scope))
+        .catch(err => console.warn('[App] SW registration failed:', err));
+    }
+
+    const banner = document.getElementById('installBanner');
+    const btn = document.getElementById('installBtn');
+
+    // Pick up event captured by the inline <head> script (fires before React mounts)
+    let deferredPrompt: any = (window as any).__hushhInstallEvent ?? null;
+    if (deferredPrompt) {
+      banner?.classList.remove('hidden');
+      delete (window as any).__hushhInstallEvent;
+    }
+
+    // Also listen for the event firing after mount (e.g. repeat visits)
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      banner?.classList.remove('hidden');
+    };
+
+    const onInstalled = () => {
+      banner?.classList.add('hidden');
+      // analytics.js is already loaded by the time user accepts install (after init() runs)
+      import('../lib/analytics.js').then(m => m.trackEvent('pwa_install')).catch(() => {});
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+
+    btn?.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') banner?.classList.add('hidden');
+      deferredPrompt = null;
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
   return (
     <>
       {/* TF.js loads async; onLoad triggers app init ensuring window.tf is ready */}
