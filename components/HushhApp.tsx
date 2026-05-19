@@ -19,6 +19,11 @@ export default function HushhApp() {
       navigator.serviceWorker.register('/sw.js')
         .then(reg => console.log('[App] SW registered:', reg.scope))
         .catch(err => console.warn('[App] SW registration failed:', err));
+
+      // Reload when a new SW activates (SW_UPDATED is sent only on updates, not first install)
+      navigator.serviceWorker.addEventListener('message', ({ data }) => {
+        if (data?.type === 'SW_UPDATED') window.location.reload();
+      });
     }
 
     const banner = document.getElementById('installBanner');
