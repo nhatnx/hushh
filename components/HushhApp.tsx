@@ -208,6 +208,27 @@ export default function HushhApp() {
           </div>
           <div className="history-list" id="historyList"></div>
         </section>
+
+        {/* Cloud model sync — rendered but hidden; app-logic shows it only when Firebase env vars are baked in */}
+        <section className="cloud-sync-card hidden" id="cloudSyncCard" aria-label="Community model sync">
+          <div className="cloud-sync-header">
+            <div className="cloud-sync-icon" aria-hidden="true">🌐</div>
+            <div className="cloud-sync-title-group">
+              <h3 className="cloud-sync-title" data-i18n="cloud.title">Community Model</h3>
+              <span className="cloud-sync-count hidden" id="cloudContribCount"></span>
+            </div>
+            <label className="toggle-switch" id="cloudSyncLabel" aria-label="Share my trained model">
+              <input type="checkbox" id="cloudSyncToggle" />
+              <span className="toggle-thumb" aria-hidden="true"></span>
+            </label>
+          </div>
+          <p className="cloud-sync-desc" data-i18n="cloud.desc">
+            Share your trained model to help other parents. Your audio is never uploaded — only model weights.
+          </p>
+          <div className="cloud-sync-status hidden" id="cloudSyncStatus">
+            <span id="cloudSyncStatusText"></span>
+          </div>
+        </section>
       </main>
 
       {/* iOS install instructions modal — visible only when triggered on iOS Safari */}
