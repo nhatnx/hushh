@@ -24,14 +24,22 @@ export default function HushhApp() {
     const banner = document.getElementById('installBanner');
     const btn = document.getElementById('installBtn');
 
+    // iOS Safari never fires beforeinstallprompt — detect and show banner manually
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = (navigator as any).standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+
     // Pick up event captured by the inline <head> script (fires before React mounts)
     let deferredPrompt: any = (window as any).__hushhInstallEvent ?? null;
     if (deferredPrompt) {
       banner?.classList.remove('hidden');
       delete (window as any).__hushhInstallEvent;
+    } else if (isIOS && !isStandalone) {
+      // On iOS Safari: show banner immediately (no programmatic prompt available)
+      banner?.classList.remove('hidden');
     }
 
-    // Also listen for the event firing after mount (e.g. repeat visits)
+    // Also listen for the event firing after mount (e.g. repeat visits, Android Chrome)
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -46,7 +54,23 @@ export default function HushhApp() {
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
     window.addEventListener('appinstalled', onInstalled);
 
+    // iOS modal helpers
+    const iosModal = document.getElementById('iosInstallModal');
+    const openModal  = () => iosModal?.classList.remove('hidden');
+    const closeModal = () => iosModal?.classList.add('hidden');
+
+    document.getElementById('iosModalClose')?.addEventListener('click', closeModal);
+    document.getElementById('iosModalGotIt')?.addEventListener('click', closeModal);
+    // Close on overlay tap (but not on the card itself)
+    iosModal?.addEventListener('click', (e) => {
+      if (e.target === iosModal) closeModal();
+    });
+
     btn?.addEventListener('click', async () => {
+      if (isIOS) {
+        openModal();
+        return;
+      }
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
@@ -183,6 +207,58 @@ export default function HushhApp() {
           <div className="history-list" id="historyList"></div>
         </section>
       </main>
+
+      {/* iOS install instructions modal — visible only when triggered on iOS Safari */}
+      <div
+        className="ios-modal-overlay hidden"
+        id="iosInstallModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="iosModalTitle"
+      >
+        <div className="ios-modal">
+          <div className="ios-modal-header">
+            <h2 className="ios-modal-title" id="iosModalTitle" data-i18n="ios.modal.title">Install App on iOS</h2>
+            <button className="ios-modal-close" id="iosModalClose" type="button" aria-label="Close">✕</button>
+          </div>
+          <div className="ios-modal-steps">
+            <div className="ios-step">
+              <div className="ios-step-icon ios-step-icon--dark" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <div className="ios-step-content">
+                <strong data-i18n="ios.step1.title">Step 1: Tap Share</strong>
+                <span data-i18n="ios.step1.desc">Tap the Share button at the bottom of your browser.</span>
+              </div>
+            </div>
+            <div className="ios-step">
+              <div className="ios-step-icon ios-step-icon--green" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </div>
+              <div className="ios-step-content">
+                <strong data-i18n="ios.step2.title">Step 2: Add to Home Screen</strong>
+                <span data-i18n="ios.step2.desc">Scroll down and tap "Add to Home Screen".</span>
+              </div>
+            </div>
+            <div className="ios-step">
+              <div className="ios-step-icon ios-step-icon--orange" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div className="ios-step-content">
+                <strong data-i18n="ios.step3.title">Step 3: Tap Add</strong>
+                <span data-i18n="ios.step3.desc">Tap "Add" in the top right corner to confirm.</span>
+              </div>
+            </div>
+          </div>
+          <button className="ios-modal-btn" id="iosModalGotIt" type="button" data-i18n="ios.modal.got-it">Got it!</button>
+        </div>
+      </div>
     </>
   );
 }

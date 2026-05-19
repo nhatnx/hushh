@@ -914,3 +914,130 @@ h3 { font-size: 18px; }
   font-style: italic;
   text-align: center;
 }
+
+/* ---- iOS Install Modal ---- */
+.ios-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+  animation: fade-in 0.2s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ios-modal {
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 24px 20px 32px;
+  width: 100%;
+  max-width: 500px;
+  animation: slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.ios-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.ios-modal-title {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.ios-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--terra-bg);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.ios-modal-close:hover { background: var(--terra-light); }
+
+.ios-modal-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.ios-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--cream);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.ios-step-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: white;
+}
+.ios-step-icon--dark   { background: #2c2c2e; }
+.ios-step-icon--green  { background: #34c759; }
+.ios-step-icon--orange { background: #ff9f0a; }
+
+.ios-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ios-step-content strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ios-step-content span {
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.4;
+}
+
+.ios-modal-btn {
+  width: 100%;
+  background: var(--text);
+  color: var(--cream);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.ios-modal-btn:hover  { opacity: 0.85; }
+.ios-modal-btn:active { transform: scale(0.98); }
