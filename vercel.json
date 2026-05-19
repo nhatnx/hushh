@@ -7,7 +7,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'none'; frame-src https://vercel.live/; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/ https://www.googletagmanager.com https://connect.facebook.net https://vercel.live; worker-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net/npm/@tensorflow/ https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://www.facebook.com https://vercel.live wss://ws-us3.pusher.com; img-src 'self' data: https://www.facebook.com; media-src blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
+          "value": "default-src 'none'; frame-src https://vercel.live/; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/ https://www.googletagmanager.com https://connect.facebook.net https://vercel.live; worker-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net/npm/@tensorflow/ https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://www.facebook.com https://vercel.live wss://ws-us3.pusher.com https://www.googletagmanager.com; img-src 'self' data: https://www.facebook.com; media-src blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
         },
         {
           "key": "X-Frame-Options",
