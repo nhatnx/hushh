@@ -1,9 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Script from 'next/script';
 
 export default function HushhApp() {
+  const appInitialized = useRef(false);
+
+  // Called from onLoad, onError, AND the 20s fallback timer — runs init exactly once
+  const initApp = () => {
+    if (appInitialized.current) return;
+    appInitialized.current = true;
+    import('../lib/app-logic.js').then(m => m.init()).catch(console.error);
+  };
+
   useEffect(() => {
     // Register SW immediately — independent of TF.js load
     if ('serviceWorker' in navigator) {
@@ -31,7 +40,6 @@ export default function HushhApp() {
 
     const onInstalled = () => {
       banner?.classList.add('hidden');
-      // analytics.js is already loaded by the time user accepts install (after init() runs)
       import('../lib/analytics.js').then(m => m.trackEvent('pwa_install')).catch(() => {});
     };
 
@@ -46,23 +54,50 @@ export default function HushhApp() {
       deferredPrompt = null;
     });
 
+    // If TF.js hasn't fired onLoad/onError within 20s (slow network, blocked CDN),
+    // start the app anyway in heuristic mode
+    const tfFallbackTimer = setTimeout(initApp, 20000);
+
+    // Bug tracking: report unhandled JS errors and promise rejections to GA4
+    const handleError = (event: ErrorEvent) => {
+      import('../lib/analytics.js')
+        .then(m => m.trackEvent('js_error', {
+          error_message: (event.message ?? '').slice(0, 200),
+          source: event.filename,
+          lineno: event.lineno,
+        }))
+        .catch(() => {});
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const msg = String(event.reason?.message ?? event.reason ?? 'unknown').slice(0, 200);
+      import('../lib/analytics.js')
+        .then(m => m.trackEvent('js_error', { error_message: msg, type: 'unhandled_rejection' }))
+        .catch(() => {});
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
     return () => {
+      clearTimeout(tfFallbackTimer);
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
       window.removeEventListener('appinstalled', onInstalled);
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
     };
   }, []);
 
   return (
     <>
-      {/* TF.js loads async; onLoad triggers app init ensuring window.tf is ready */}
+      {/* TF.js loads async; onLoad triggers app init. onError handles CDN failure gracefully. */}
       <Script
         src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"
         integrity="sha384-R4iglwC8w7UAyfRq7VUmXEPjrvYnoXIqhsbTUN07o6o8yKYeiTY0/Z6DzbsKgWZ3"
         crossOrigin="anonymous"
         strategy="afterInteractive"
-        onLoad={() => {
-          import('../lib/app-logic.js').then(m => m.init()).catch(console.error);
-        }}
+        onLoad={() => initApp()}
+        onError={() => initApp()}
       />
 
       <main className="app-shell" role="main">
