@@ -11,7 +11,7 @@ const path = require('path');
 function generateIcon(size) {
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
-  const p = size / 192; // scale all coords from a 192-unit grid
+  const p = size / 192;
 
   // ── Background ──────────────────────────────────────────────
   const bgR = size * 0.22;
@@ -20,73 +20,86 @@ function generateIcon(size) {
   ctx.strokeStyle = '#f2d5c8'; ctx.lineWidth = size * 0.025;
   ctx.beginPath(); ctx.roundRect(size*0.01, size*0.01, size*0.98, size*0.98, bgR); ctx.stroke();
 
-  // ── Baby bottle (drawn on a 192×192 grid, scaled by p) ──────
-  //   Layout (y from top):
-  //     nipple  : 18–52  (34px tall, 30px wide, centered)
-  //     collar  : 48–60  (12px tall, 52px wide, centered)
-  //     neck    : 56–88  (32px tall, 40px wide, centered)
-  //     shoulder: 84–106 (22px tall, transitions body width)
-  //     body    : 100–170 (70px tall, 86px wide, centered)
+  // ── Crying baby face (slightly right, behind mic) ────────────
+  const fcx = 112 * p, fcy = 95 * p, fr = 62 * p;
 
-  const stroke = '#c96b47';
-  ctx.lineJoin = 'round';
+  // Face
+  ctx.fillStyle = '#fde8d8'; ctx.strokeStyle = '#e8956d'; ctx.lineWidth = 3 * p;
+  ctx.beginPath(); ctx.arc(fcx, fcy, fr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-  // Body
-  const bx = 53 * p, by = 100 * p, bw = 86 * p, bh = 70 * p, br = 18 * p;
-  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = stroke; ctx.lineWidth = 3.5 * p;
-  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, br); ctx.fill(); ctx.stroke();
+  // Rosy cheeks
+  ctx.fillStyle = 'rgba(240,130,110,0.22)';
+  ctx.beginPath(); ctx.ellipse(fcx - 38*p, fcy + 14*p, 20*p, 11*p, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(fcx + 38*p, fcy + 14*p, 20*p, 11*p, 0, 0, Math.PI*2); ctx.fill();
 
-  // Milk fill (lower 55% of body, same rounded bottom)
-  const fillTop = by + bh * 0.43;
-  ctx.save();
-  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, br); ctx.clip();
-  ctx.fillStyle = '#f9e4c8';
-  ctx.fillRect(bx, fillTop, bw, bh - (fillTop - by));
-  ctx.restore();
-  // redraw body outline on top
-  ctx.strokeStyle = stroke; ctx.lineWidth = 3.5 * p;
-  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, br); ctx.stroke();
+  // Worried eyebrows (inner ends raised)
+  ctx.strokeStyle = '#7a4f2e'; ctx.lineWidth = 3.5 * p; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(fcx - 34*p, fcy - 24*p); ctx.lineTo(fcx - 14*p, fcy - 32*p); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(fcx + 14*p, fcy - 32*p); ctx.lineTo(fcx + 34*p, fcy - 24*p); ctx.stroke();
 
-  // Graduation marks on right side of body
-  ctx.strokeStyle = '#e8a87c'; ctx.lineWidth = 2 * p;
-  [0.28, 0.50, 0.72].forEach((frac, i) => {
-    const y = by + bh * frac;
-    const len = i === 1 ? 14 * p : 9 * p;
-    ctx.beginPath();
-    ctx.moveTo(bx + bw - 6 * p - len, y);
-    ctx.lineTo(bx + bw - 6 * p, y);
-    ctx.stroke();
+  // Squinting crying eyes (arc curving downward = closed squint)
+  ctx.strokeStyle = '#4a2c0a'; ctx.lineWidth = 3 * p;
+  ctx.beginPath(); ctx.arc(fcx - 22*p, fcy - 8*p, 9*p, 0.15, Math.PI - 0.15); ctx.stroke();
+  ctx.beginPath(); ctx.arc(fcx + 22*p, fcy - 8*p, 9*p, 0.15, Math.PI - 0.15); ctx.stroke();
+
+  // Tear streaks
+  ctx.fillStyle = '#89c4e1';
+  ctx.beginPath(); ctx.ellipse(fcx - 22*p, fcy + 10*p, 4.5*p, 9*p, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(fcx + 22*p, fcy + 10*p, 4.5*p, 9*p, 0, 0, Math.PI*2); ctx.fill();
+  // teardrop points
+  ctx.fillStyle = '#89c4e1';
+  ctx.beginPath(); ctx.arc(fcx - 22*p, fcy + 21*p, 4*p, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(fcx + 22*p, fcy + 21*p, 4*p, 0, Math.PI*2); ctx.fill();
+
+  // Open crying mouth
+  ctx.fillStyle = '#b03020'; ctx.strokeStyle = '#7a1a0a'; ctx.lineWidth = 2.5 * p;
+  ctx.beginPath(); ctx.ellipse(fcx, fcy + 36*p, 24*p, 15*p, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // upper lip line
+  ctx.strokeStyle = '#e8956d'; ctx.lineWidth = 2 * p;
+  ctx.beginPath(); ctx.arc(fcx, fcy + 22*p, 24*p, 0.15, Math.PI - 0.15); ctx.stroke();
+
+  // ── Microphone (foreground, lower-left) ─────────────────────
+  const mcx = 66 * p;
+
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.28)'; ctx.shadowBlur = 8*p; ctx.shadowOffsetX = 3*p; ctx.shadowOffsetY = 3*p;
+
+  // Capsule
+  const capX = mcx - 17*p, capY = 62*p, capW = 34*p, capH = 50*p, capR = 17*p;
+  ctx.fillStyle = '#2c3e50';
+  ctx.beginPath(); ctx.roundRect(capX, capY, capW, capH, capR); ctx.fill();
+
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+  ctx.strokeStyle = '#1a252f'; ctx.lineWidth = 2 * p;
+  ctx.beginPath(); ctx.roundRect(capX, capY, capW, capH, capR); ctx.stroke();
+
+  // Capsule grille lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.8 * p; ctx.lineCap = 'round';
+  [0.3, 0.52, 0.74].forEach(t => {
+    const gy = capY + capH * t;
+    const dy = Math.abs(gy - (capY + capH/2));
+    const hw = Math.sqrt(Math.max(0, capR*capR - dy*dy)) - 2*p;
+    ctx.beginPath(); ctx.moveTo(mcx - hw, gy); ctx.lineTo(mcx + hw, gy); ctx.stroke();
   });
 
-  // Shoulder (trapezoid bridging neck→body)
-  const nx = 76 * p, nw = 40 * p;
-  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = stroke; ctx.lineWidth = 3.5 * p;
+  // Handle
+  ctx.fillStyle = '#95a5a6'; ctx.strokeStyle = '#5d6d7e'; ctx.lineWidth = 2 * p;
+  ctx.beginPath(); ctx.roundRect(mcx - 10*p, capY + capH - 2*p, 20*p, 24*p, 3*p); ctx.fill(); ctx.stroke();
+  // Handle ring accent
+  ctx.strokeStyle = '#7f8c8d'; ctx.lineWidth = 2 * p;
+  ctx.beginPath(); ctx.moveTo(mcx - 10*p, capY + capH + 8*p); ctx.lineTo(mcx + 10*p, capY + capH + 8*p); ctx.stroke();
+
+  // Stand — U-arc sweeping right
+  ctx.strokeStyle = '#5d6d7e'; ctx.lineWidth = 3.5 * p; ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(nx, 88 * p);
-  ctx.lineTo(nx + nw, 88 * p);
-  ctx.lineTo(bx + bw, by + br);
-  ctx.lineTo(bx, by + br);
-  ctx.closePath(); ctx.fill();
-  // side strokes only (top + bottom already covered by neck/body outlines)
-  ctx.beginPath();
-  ctx.moveTo(nx, 88 * p); ctx.lineTo(bx, by + br);
+  ctx.arc(mcx + 14*p, capY + capH + 22*p, 14*p, Math.PI, Math.PI * 1.5);
   ctx.stroke();
+  // Base
   ctx.beginPath();
-  ctx.moveTo(nx + nw, 88 * p); ctx.lineTo(bx + bw, by + br);
+  ctx.moveTo(mcx + 14*p, capY + capH + 22*p + 14*p);
+  ctx.lineTo(mcx + 30*p, capY + capH + 22*p + 14*p);
   ctx.stroke();
-
-  // Neck
-  const nr = 7 * p;
-  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = stroke; ctx.lineWidth = 3.5 * p;
-  ctx.beginPath(); ctx.roundRect(nx, 56 * p, nw, 36 * p, [nr, nr, 0, 0]); ctx.fill(); ctx.stroke();
-
-  // Collar ring
-  ctx.fillStyle = '#f2a58e'; ctx.strokeStyle = stroke; ctx.lineWidth = 2.5 * p;
-  ctx.beginPath(); ctx.roundRect(70 * p, 48 * p, 52 * p, 14 * p, 4 * p); ctx.fill(); ctx.stroke();
-
-  // Nipple
-  ctx.fillStyle = '#f2a58e'; ctx.strokeStyle = stroke; ctx.lineWidth = 3 * p;
-  ctx.beginPath(); ctx.roundRect(81 * p, 18 * p, 30 * p, 36 * p, [15 * p, 15 * p, 4 * p, 4 * p]); ctx.fill(); ctx.stroke();
 
   return canvas.toBuffer('image/png');
 }
