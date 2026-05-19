@@ -24,8 +24,10 @@ export default function HushhApp() {
     const banner = document.getElementById('installBanner');
     const btn = document.getElementById('installBtn');
 
-    // iOS Safari never fires beforeinstallprompt — detect and show banner manually
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // iOS never fires beforeinstallprompt — detect and show banner manually.
+    // iPadOS 13+ reports as "Macintosh" by default, so check maxTouchPoints too.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
     const isStandalone = (navigator as any).standalone === true
       || window.matchMedia('(display-mode: standalone)').matches;
 
