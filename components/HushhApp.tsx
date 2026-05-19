@@ -183,7 +183,7 @@ export default function HushhApp() {
           <span aria-hidden="true">📁</span>
           <span data-i18n="upload.btn">Upload audio file (.wav · .mp3 · .m4a · .webm)</span>
         </button>
-        <input type="file" id="fileInput" accept="audio/*" style={{ display: 'none' }} aria-label="Audio file input" />
+        <input type="file" id="fileInput" accept=".m4a,.mp3,.wav,.webm,.ogg,.aac,.flac,audio/*,video/mp4" style={{ display: 'none' }} aria-label="Audio file input" />
 
         {/* Processing status */}
         <p className="processing-step" id="processingStep" role="status" aria-live="polite"></p>
