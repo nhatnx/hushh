@@ -141,7 +141,7 @@ export default function HushhApp() {
             <button className="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">🌓</button>
           </div>
           <div className="app-logo" aria-hidden="true">🍼</div>
-          <h1 className="app-title">Hushh</h1>
+          <h1 className="app-title">Hushh <span className="beta-badge">Beta</span></h1>
           <p className="app-tagline" data-i18n="tagline">Understand what your little one needs</p>
           <span className="privacy-pill" id="privacyBadge" aria-label="Privacy guarantee">
             🔒 Loading…
