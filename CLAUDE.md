@@ -9,14 +9,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm install          # install deps (npm, not pnpm — use npm for install)
+npm install          # install deps — use npm, not pnpm (pnpm-lock.yaml is for build only)
 npm run dev          # dev server with Turbopack at http://localhost:3000
 npm run icons        # generate-icons.cjs → public/icons/icon-192.png, icon-512.png
 ```
 
 ```bash
-pnpm run build       # static export to out/ (uses pnpm for build)
+pnpm run build       # static export to out/ (Turbopack; pnpm-lock.yaml ships with repo)
 ```
+
+There are no tests and no ESLint configuration — only SonarLint (project: `nhatnx_hushh`). TypeScript type checking: run `npx tsc --noEmit` manually; `tsconfig.json` has `strict: false` and `allowJs: true`, so `.js` files in `lib/` are included but loosely typed.
 
 **Note for Windows:** The `Collecting page data` build phase calls `fs.readlink()` on module files. On NTFS with non-standard reparse-point behavior, this returns EISDIR for regular files — a Node.js/Windows bug. **Vercel builds on Linux where this does not occur.** To deploy: push to Git and let Vercel build. Local `npm run dev` is unaffected.
 
@@ -92,6 +94,15 @@ Classes: `hunger`, `tired`, `pain`, `diaper`, `attention`. Result marked uncerta
 
 The component (`HushhApp.tsx`) renders the HTML structure as JSX and never re-renders after mount (no state/props). All dynamic UI updates are direct DOM manipulation inside `app-logic.js`, which is safe since React never triggers a re-render.
 
+### app/layout.tsx inline scripts
+
+Two `dangerouslySetInnerHTML` scripts run before React hydrates:
+
+1. **Theme restore** — reads `localStorage('hushh-theme')` and sets `document.documentElement.dataset.theme` immediately, preventing a flash of wrong theme on first paint.
+2. **`beforeinstallprompt` capture** — the PWA install event fires during initial HTML parse, before `useEffect` runs. The inline script saves it to `window.__hushhInstallEvent`; `HushhApp.tsx` picks it up on mount. If you move this to `useEffect`, Android Chrome users will miss the prompt.
+
+The `<link rel="manifest">` is also hardcoded in `<head>` (not via `metadata.manifest`) because Next.js 15 injects metadata via RSC streaming after JS loads — Chrome requires the manifest link in initial HTML to detect PWA installability.
+
 ### On-device Fine-tuning (lib/app-logic.js)
 
 Training runs on the **main thread** inside `app-logic.js` (not in a Web Worker). The flow:
@@ -137,7 +148,3 @@ Sends `{ type: 'SW_UPDATED' }` to all clients when a new SW activates, triggerin
 - **Vocalization types**: hunger (Neh — tongue-palate reflex), pain (Heh), fatigue (Owh — yawn reflex), discomfort/diaper (Eair), attention
 - **Acoustic fingerprints**: pain → pitch > 450 Hz, high ZCR, sharp onsets; hunger → rhythmic (high rhythm score), 280–500 Hz; tired → lower pitch, low burst ratio, fewer onsets
 - **Feature vector**: 25 dimensions — see `featuresToVector()` in `lib/cry-model.js` for the exact layout
-
-## Code Quality
-
-SonarLint is configured (project: `nhatnx_hushh`) — see [.vscode/settings.json](.vscode/settings.json).

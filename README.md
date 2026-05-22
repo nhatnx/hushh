@@ -1,14 +1,14 @@
-# 🍼 Hushh - Baby Cry Analyzer — PWA
+# Hushh - Baby Cry Analyzer
 
 > **100% on-device.** No audio ever leaves the user's phone.
 
-A Progressive Web App that analyzes a baby's cry using the **Web Audio API** and **TensorFlow.js**, running entirely in the browser with zero cloud dependency.
+A Progressive Web App that analyzes a baby's cry using the **Web Audio API** and **TensorFlow.js**, running entirely in the browser with zero cloud dependency. Built with **Next.js 15** (App Router, static export) + React 19.
 
 ---
 
 ## Privacy Architecture
 
-```
+```text
 User's Phone
 ┌─────────────────────────────────────────────────┐
 │  Microphone → Web Audio API → AudioAnalyzer.js  │
@@ -21,67 +21,54 @@ User's Phone
 │                                                  │
 │  ✗ No network requests for audio                 │
 │  ✗ No API keys required                          │
-│  ✗ No analytics or tracking                      │
 │  ✓ History stored in localStorage only           │
 └─────────────────────────────────────────────────┘
 ```
 
 ---
 
+## Development
+
+```bash
+npm install       # install dependencies
+npm run dev       # dev server at http://localhost:3000 (Turbopack)
+npm run icons     # regenerate PWA icons → public/icons/
+```
+
+```bash
+pnpm run build    # static export to out/
+```
+
+> **Deploy via Vercel** (push to Git) — local builds on Windows may fail during the `Collecting page data` phase due to a Node.js/NTFS bug. `npm run dev` is unaffected.
+
+HTTPS is required in production for `getUserMedia`; localhost is exempt.
+
+---
+
 ## File Structure
 
+```text
+app/
+  layout.tsx        HTML shell, meta tags, theme + PWA install scripts
+  page.tsx          Renders <HushhApp>
+  globals.css       Design system (CSS custom properties, warm theme)
+
+components/
+  HushhApp.tsx      Client component — JSX structure, TF.js loader, SW registration
+
+lib/
+  app-logic.js      Main controller — state machine, recording, UI, on-device training
+  audio-analyzer.js On-device acoustic feature extraction (pitch, MFCCs, rhythm, ZCR)
+  cry-model.js      TF.js model definition + heuristic classifier
+  model-cloud.js    Optional anonymous federated sync via Supabase Storage
+  i18n.js           Translations (en, vi)
+  analytics.js      GA4 + Facebook Pixel
+
+public/
+  sw.js             Service worker — offline support (Next.js-aware caching)
+  manifest.json     PWA manifest
+  icons/            192×192 and 512×512 PNG icons
 ```
-baby-cry-pwa/
-├── index.html          # PWA shell — semantic HTML, ARIA labels
-├── style.css           # Full design system (warm organic theme)
-├── app.js              # Main controller — recording, UI, history
-├── audio-analyzer.js   # On-device acoustic feature extraction
-│                         (pitch via MPM, MFCCs, rhythm, ZCR, etc.)
-├── cry-model.js        # TF.js model + heuristic classifier
-│                         (5 classes: hunger, tired, pain, diaper, attention)
-├── sw.js               # Service worker — offline support, cache
-├── manifest.json       # PWA manifest — installable on Android/iOS
-├── generate-icons.js   # Node script to generate PNG icons
-└── icons/
-    ├── icon-192.png    # PWA icon (generate or replace manually)
-    └── icon-512.png
-```
-
----
-
-## How to Deploy
-
-### Option A — Serve locally (development)
-```bash
-# Python (no install needed)
-python3 -m http.server 8080
-
-# Or Node.js
-npx serve .
-
-# Open https://localhost:8080
-# Note: HTTPS or localhost required for getUserMedia
-```
-
-### Option B — Static hosting (production)
-Deploy the folder to any static host:
-- **Netlify**: drag-and-drop the folder at app.netlify.com
-- **Vercel**: `npx vercel --prod`
-- **GitHub Pages**: push to a repo, enable Pages
-- **Firebase Hosting**: `firebase deploy`
-
-> **HTTPS is required** for microphone access on mobile browsers.
-
----
-
-## Generate Icons
-
-```bash
-npm install canvas
-node generate-icons.js
-```
-
-Or replace `icons/icon-192.png` and `icons/icon-512.png` manually with your own 192×192 and 512×512 PNG images.
 
 ---
 
@@ -90,7 +77,7 @@ Or replace `icons/icon-192.png` and `icons/icon-512.png` manually with your own 
 The analyzer extracts these acoustic features per recording:
 
 | Feature | Relevance |
-|---------|-----------|
+| ------- | --------- |
 | **Pitch (F0)** via McLeod Pitch Method | Pain > 450 Hz; hunger 280–500 Hz; tired < 300 Hz |
 | **Rhythm score** (autocorrelation) | Hunger is periodic; pain has sharp irregular bursts |
 | **Zero-crossing rate** | Higher in pain/discomfort (turbulent airflow) |
@@ -100,42 +87,34 @@ The analyzer extracts these acoustic features per recording:
 | **13 MFCCs** | Timbral texture — nasal vs breathy vs tense quality |
 
 These features feed a **TensorFlow.js neural network** (2 dense layers + dropout) with a **heuristic fallback** based on published infant cry research:
+
 - Lester & Boukydis (1992) — *Infant Crying*
 - Várallyay (2008) — *Baby cry recognition in the presence of noise*
 - Muller et al. (2019) — *Deep learning for baby cry classification*
 
-### Improving Accuracy Over Time
+### On-device Fine-tuning
 
-The TF.js model architecture (`cry-model.js → buildModel()`) is ready for fine-tuning. To train on your own labeled data:
+Users can correct predictions via thumbs-up/down feedback. Once 5+ labeled samples accumulate in IndexedDB (`hushh-training`), `checkAndTrain()` in `app-logic.js` runs `model.fit()` on-device — only the output head is retrained to prevent catastrophic forgetting. No data ever leaves the device.
 
-```js
-import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.esm.js';
-import { buildModel, featuresToVector, LABELS } from './cry-model.js';
+---
 
-// Build and compile
-const model = buildModel(25);
+## Cloud Model Sync (optional)
 
-// Prepare training data (features + one-hot labels)
-const xs = tf.tensor2d(featureVectors);  // shape [N, 25]
-const ys = tf.tensor2d(oneHotLabels);    // shape [N, 5]
+Anonymous federated averaging via Supabase Storage. Requires these environment variables (set in Vercel → Settings → Environment Variables):
 
-// Train locally — no server needed
-await model.fit(xs, ys, {
-  epochs: 50,
-  validationSplit: 0.2,
-  callbacks: { onEpochEnd: (e, log) => console.log(e, log) }
-});
-
-// Save to IndexedDB — persists across sessions
-await model.save('indexeddb://hushh-model');
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
+
+When not configured, the cloud sync UI is hidden and the app runs fully offline.
 
 ---
 
 ## Browser Compatibility
 
 | Feature | Chrome Android | Safari iOS | Firefox |
-|---------|:--------------:|:----------:|:-------:|
+| ------- | :------------: | :--------: | :-----: |
 | Microphone | ✅ | ✅ | ✅ |
 | Web Audio API | ✅ | ✅ | ✅ |
 | TensorFlow.js | ✅ | ✅ | ✅ |
@@ -148,6 +127,7 @@ await model.save('indexeddb://hushh-model');
 ## Important Medical Disclaimer
 
 This app is an **assistive tool only** and is not a medical device. It uses acoustic heuristics and should not replace parental judgment or medical advice. If your baby:
+
 - Cries for more than 3 hours/day
 - Has a fever above 38°C / 100.4°F
 - Appears to be in severe pain

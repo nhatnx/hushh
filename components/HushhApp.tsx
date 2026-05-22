@@ -73,6 +73,17 @@ export default function HushhApp() {
       if (e.target === iosModal) closeModal();
     });
 
+    // Disclaimer modal
+    const disclaimerModal = document.getElementById('disclaimerModal');
+    const openDisclaimer  = () => disclaimerModal?.classList.remove('hidden');
+    const closeDisclaimer = () => disclaimerModal?.classList.add('hidden');
+    document.getElementById('disclaimerBtn')?.addEventListener('click', openDisclaimer);
+    document.getElementById('disclaimerModalClose')?.addEventListener('click', closeDisclaimer);
+    document.getElementById('disclaimerModalGotIt')?.addEventListener('click', closeDisclaimer);
+    disclaimerModal?.addEventListener('click', (e) => {
+      if (e.target === disclaimerModal) closeDisclaimer();
+    });
+
     btn?.addEventListener('click', async () => {
       if (isIOS) {
         openModal();
@@ -234,6 +245,11 @@ export default function HushhApp() {
             <span id="cloudSyncStatusText"></span>
           </div>
         </section>
+
+        {/* Medical disclaimer footer link */}
+        <button className="disclaimer-link" id="disclaimerBtn" type="button">
+          ⚕️ Medical disclaimer
+        </button>
       </main>
 
       {/* iOS install instructions modal — visible only when triggered on iOS Safari */}
@@ -285,6 +301,34 @@ export default function HushhApp() {
             </div>
           </div>
           <button className="ios-modal-btn" id="iosModalGotIt" type="button" data-i18n="ios.modal.got-it">Got it!</button>
+        </div>
+      </div>
+
+      {/* Medical disclaimer modal */}
+      <div
+        className="ios-modal-overlay hidden"
+        id="disclaimerModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="disclaimerModalTitle"
+      >
+        <div className="ios-modal">
+          <div className="ios-modal-header">
+            <h2 className="ios-modal-title" id="disclaimerModalTitle">⚕️ Medical Disclaimer</h2>
+            <button className="ios-modal-close" id="disclaimerModalClose" type="button" aria-label="Close">✕</button>
+          </div>
+          <div className="disclaimer-body">
+            <p>This app is an <strong>assistive tool only</strong> and is not a medical device. It uses acoustic heuristics and should not replace parental judgment or medical advice.</p>
+            <p>If your baby:</p>
+            <ul>
+              <li>Cries for more than 3 hours/day</li>
+              <li>Has a fever above 38°C / 100.4°F</li>
+              <li>Appears to be in severe pain</li>
+              <li>Has any other concerning symptoms</li>
+            </ul>
+            <p className="disclaimer-urgent">Please contact a pediatrician or healthcare provider immediately.</p>
+          </div>
+          <button className="ios-modal-btn" id="disclaimerModalGotIt" type="button">Got it</button>
         </div>
       </div>
     </>
