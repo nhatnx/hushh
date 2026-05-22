@@ -78,7 +78,7 @@ Magnitude spectrum is computed once per frame via `_magnitude()` (Cooley-Tukey r
 Two-stage classification:
 
 1. **Heuristic** (`heuristicClassify`): rule-based scoring on acoustic features, grounded in infant cry research. Always runs.
-2. **TF.js neural net** (`buildModel`): 2-layer dense network (64→32→5 softmax). Only contributes when personalized weights exist in IndexedDB (`indexeddb://baby-cry-model`). Blended 60/40 (model/heuristic) when available.
+2. **TF.js neural net** (`buildModel`): 2-layer dense network (64→32→5 softmax). Only contributes when personalized weights exist in IndexedDB (`indexeddb://hushh-model`). Blended 60/40 (model/heuristic) when available.
 
 Classes: `hunger`, `tired`, `pain`, `diaper`, `attention`. Result marked uncertain when top confidence < 35% or margin to second class < 8 pp.
 
@@ -88,7 +88,7 @@ Classes: `hunger`, `tired`, `pain`, `diaper`, `attention`. Result marked uncerta
 
 - **Recording**: `getUserMedia` → `MediaRecorder` (webm/opus preferred) + `createStreamAnalyzer` for live waveform → auto-stop at 30 s
 - **Analysis**: `blobToFeatures` → `classify` → `renderResult` → `saveToHistory` (localStorage, max 10 entries)
-- **Model boot**: tries `indexeddb://baby-cry-model` (8 s timeout); falls back to fresh `buildModel()` (heuristic-only mode)
+- **Model boot**: tries `indexeddb://hushh-model` (8 s timeout); falls back to fresh `buildModel()` (heuristic-only mode)
 
 The component (`HushhApp.tsx`) renders the HTML structure as JSX and never re-renders after mount (no state/props). All dynamic UI updates are direct DOM manipulation inside `app-logic.js`, which is safe since React never triggers a re-render.
 
@@ -99,7 +99,7 @@ Training runs on the **main thread** inside `app-logic.js` (not in a Web Worker)
 - User feedback enqueues a `{ vector, labelIndex }` sample to IndexedDB (`hushh-training` store)
 - Once 5+ samples queue up, `checkAndTrain()` drains the queue and runs `model.fit()`
 - Only the output head (`l.name === 'output'`, 160 params) is trained — prevents catastrophic forgetting on small datasets
-- Trained weights are saved back to `indexeddb://baby-cry-model`
+- Trained weights are saved back to `indexeddb://hushh-model`
 
 `public/train-worker.js` is a legacy artifact (uses `importScripts`, saves to `indexeddb://hushh-model`) and is **not imported by the Next.js app**.
 
