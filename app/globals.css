@@ -1114,6 +1114,32 @@ h3 { font-size: 18px; }
   color: var(--terra-dark);
 }
 
+/* ---- Share button (inside result card) ---- */
+.share-row {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.share-btn {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+.share-btn:hover  { border-color: var(--muted-blue); background: var(--blue-light); color: var(--muted-blue); }
+.share-btn:active { transform: scale(0.98); }
+
 /* ---- Feedback form (inside ios-modal) ---- */
 .feedback-type-row {
   display: flex;
