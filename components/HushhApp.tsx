@@ -84,6 +84,82 @@ export default function HushhApp() {
       if (e.target === disclaimerModal) closeDisclaimer();
     });
 
+    // Feedback modal
+    // Configure in Vercel → Settings → Environment Variables:
+    //   NEXT_PUBLIC_FEEDBACK_FORM_URL      → https://docs.google.com/forms/d/e/FORM_ID/formResponse
+    //   NEXT_PUBLIC_FEEDBACK_ENTRY_MESSAGE → entry.XXXXXXXXXX  (message field ID)
+    //   NEXT_PUBLIC_FEEDBACK_ENTRY_TYPE    → entry.YYYYYYYYYY  (type field ID)
+    const FORM_URL    = process.env.NEXT_PUBLIC_FEEDBACK_FORM_URL      ?? '';
+    const ENTRY_MSG   = process.env.NEXT_PUBLIC_FEEDBACK_ENTRY_MESSAGE  ?? '';
+    const ENTRY_TYPE  = process.env.NEXT_PUBLIC_FEEDBACK_ENTRY_TYPE     ?? '';
+
+    const feedbackModal     = document.getElementById('feedbackModal');
+    const feedbackForm      = document.getElementById('feedbackForm');
+    const feedbackSuccess   = document.getElementById('feedbackSuccess');
+    const feedbackText      = document.getElementById('feedbackText') as HTMLTextAreaElement | null;
+    const feedbackSubmitBtn = document.getElementById('feedbackSubmitBtn') as HTMLButtonElement | null;
+    const feedbackCharCount = document.getElementById('feedbackCharCount');
+    let selectedFeedbackType = 'suggestion';
+
+    const openFeedback = () => {
+      feedbackModal?.classList.remove('hidden');
+      feedbackForm?.classList.remove('hidden');
+      feedbackSuccess?.classList.add('hidden');
+      if (feedbackSubmitBtn) { feedbackSubmitBtn.classList.remove('hidden'); feedbackSubmitBtn.disabled = true; }
+      if (feedbackText) feedbackText.value = '';
+      if (feedbackCharCount) feedbackCharCount.textContent = '0';
+      // Reset type selection to first option
+      document.querySelectorAll('.feedback-type-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+      selectedFeedbackType = 'suggestion';
+      feedbackText?.focus();
+    };
+    const closeFeedback = () => feedbackModal?.classList.add('hidden');
+
+    document.getElementById('feedbackBtn')?.addEventListener('click', openFeedback);
+    document.getElementById('feedbackModalClose')?.addEventListener('click', closeFeedback);
+    feedbackModal?.addEventListener('click', (e) => { if (e.target === feedbackModal) closeFeedback(); });
+
+    document.querySelectorAll('.feedback-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedFeedbackType = (btn as HTMLElement).dataset.type ?? 'suggestion';
+      });
+    });
+
+    feedbackText?.addEventListener('input', () => {
+      const len = feedbackText!.value.length;
+      if (feedbackCharCount) feedbackCharCount.textContent = String(len);
+      if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = len < 5;
+    });
+
+    feedbackSubmitBtn?.addEventListener('click', async () => {
+      const message = feedbackText?.value.trim() ?? '';
+      if (message.length < 5 || !feedbackSubmitBtn) return;
+
+      feedbackSubmitBtn.disabled = true;
+      const origText = feedbackSubmitBtn.textContent;
+      feedbackSubmitBtn.textContent = '⏳';
+
+      try {
+        if (FORM_URL) {
+          const body = new FormData();
+          if (ENTRY_MSG)  body.append(ENTRY_MSG,  message);
+          if (ENTRY_TYPE) body.append(ENTRY_TYPE, selectedFeedbackType);
+          await fetch(FORM_URL, { method: 'POST', mode: 'no-cors', body });
+        }
+        feedbackForm?.classList.add('hidden');
+        feedbackSubmitBtn.classList.add('hidden');
+        feedbackSuccess?.classList.remove('hidden');
+        import('../lib/analytics.js')
+          .then(m => m.trackEvent('feedback_sent', { type: selectedFeedbackType }))
+          .catch(() => {});
+      } catch {
+        feedbackSubmitBtn.disabled = false;
+        feedbackSubmitBtn.textContent = origText;
+      }
+    });
+
     btn?.addEventListener('click', async () => {
       if (isIOS) {
         openModal();
@@ -246,10 +322,16 @@ export default function HushhApp() {
           </div>
         </section>
 
-        {/* Medical disclaimer footer link */}
-        <button className="disclaimer-link" id="disclaimerBtn" type="button" data-i18n="disclaimer.btn">
-          ⚕️ Medical disclaimer
-        </button>
+        {/* Footer links */}
+        <div className="app-footer">
+          <button className="app-footer-link" id="feedbackBtn" type="button" data-i18n="feedback.footer.btn">
+            💬 Send feedback
+          </button>
+          <span className="app-footer-sep" aria-hidden="true">·</span>
+          <button className="app-footer-link" id="disclaimerBtn" type="button" data-i18n="disclaimer.btn">
+            ⚕️ Medical disclaimer
+          </button>
+        </div>
       </main>
 
       {/* iOS install instructions modal — visible only when triggered on iOS Safari */}
@@ -329,6 +411,49 @@ export default function HushhApp() {
             <p className="disclaimer-urgent" data-i18n="disclaimer.body.urgent">Please contact a pediatrician or healthcare provider immediately.</p>
           </div>
           <button className="ios-modal-btn" id="disclaimerModalGotIt" type="button" data-i18n="disclaimer.got-it">Got it</button>
+        </div>
+      </div>
+
+      {/* Feedback modal */}
+      <div
+        className="ios-modal-overlay hidden"
+        id="feedbackModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedbackModalTitle"
+      >
+        <div className="ios-modal">
+          <div className="ios-modal-header">
+            <h2 className="ios-modal-title" id="feedbackModalTitle" data-i18n="feedback.modal.title">Send Feedback</h2>
+            <button className="ios-modal-close" id="feedbackModalClose" type="button" aria-label="Close">✕</button>
+          </div>
+
+          <div id="feedbackForm">
+            <div className="feedback-type-row" role="group">
+              <button className="feedback-type-btn active" data-type="suggestion" type="button" data-i18n="feedback.type.suggestion">💡 Suggestion</button>
+              <button className="feedback-type-btn" data-type="bug" type="button" data-i18n="feedback.type.bug">🐛 Bug</button>
+              <button className="feedback-type-btn" data-type="other" type="button" data-i18n="feedback.type.other">💬 Other</button>
+            </div>
+            <label className="feedback-label" htmlFor="feedbackText" data-i18n="feedback.label">What would you like to share?</label>
+            <textarea
+              className="feedback-textarea"
+              id="feedbackText"
+              rows={4}
+              maxLength={500}
+              aria-describedby="feedbackCharCounter"
+            />
+            <p className="feedback-char-count" id="feedbackCharCounter">
+              <span id="feedbackCharCount">0</span> / 500
+            </p>
+          </div>
+
+          <div className="feedback-success hidden" id="feedbackSuccess">
+            <p data-i18n="feedback.success.msg">✓ Thank you! Your feedback helps improve Hushh.</p>
+          </div>
+
+          <button className="ios-modal-btn" id="feedbackSubmitBtn" type="button" disabled data-i18n="feedback.submit">
+            Submit
+          </button>
         </div>
       </div>
     </>

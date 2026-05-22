@@ -1057,23 +1057,37 @@ h3 { font-size: 18px; }
 .ios-modal-btn:hover  { opacity: 0.85; }
 .ios-modal-btn:active { transform: scale(0.98); }
 
-/* ---- Disclaimer footer link ---- */
-.disclaimer-link {
-  display: block;
-  width: 100%;
+/* ---- App footer (feedback + disclaimer links) ---- */
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   margin-top: 24px;
-  padding: 8px;
+  padding-bottom: 8px;
+}
+
+.app-footer-link {
   background: none;
   border: none;
   font-family: 'Nunito', sans-serif;
   font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
-  text-align: center;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
   letter-spacing: 0.2px;
-  transition: color 0.15s;
 }
-.disclaimer-link:hover { color: var(--terra); }
+.app-footer-link:hover { color: var(--terra); background: var(--terra-bg); }
+
+.app-footer-sep {
+  color: var(--text-muted);
+  opacity: 0.4;
+  font-size: 10px;
+  pointer-events: none;
+  user-select: none;
+}
 
 /* ---- Disclaimer modal body ---- */
 .disclaimer-body {
@@ -1098,6 +1112,80 @@ h3 { font-size: 18px; }
 .disclaimer-urgent {
   font-weight: 700;
   color: var(--terra-dark);
+}
+
+/* ---- Feedback form (inside ios-modal) ---- */
+.feedback-type-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.feedback-type-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.feedback-type-btn:hover { border-color: var(--terra-light); background: var(--terra-bg); }
+.feedback-type-btn.active {
+  border-color: var(--terra);
+  background: var(--terra-bg);
+  color: var(--terra-dark);
+}
+
+.feedback-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.feedback-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  resize: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.feedback-textarea:focus {
+  outline: none;
+  border-color: var(--terra);
+}
+
+.feedback-char-count {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  margin-bottom: 20px;
+}
+
+.feedback-success {
+  text-align: center;
+  padding: 20px 0 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sage);
 }
 
 /* ── Cloud Model Sync card ──────────────────────────────── */

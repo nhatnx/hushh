@@ -128,7 +128,13 @@ Optional anonymous federated learning via **Supabase Storage** — no SDK, plain
 ```text
 NEXT_PUBLIC_SUPABASE_URL      = https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJ...
+
+NEXT_PUBLIC_FEEDBACK_FORM_URL      = https://docs.google.com/forms/d/e/FORM_ID/formResponse
+NEXT_PUBLIC_FEEDBACK_ENTRY_MESSAGE = entry.XXXXXXXXXX
+NEXT_PUBLIC_FEEDBACK_ENTRY_TYPE    = entry.YYYYYYYYYY
 ```
+
+To get the entry IDs: open the Google Form, right-click → Inspect → submit a test response and look for `entry.` field names in the network request body.
 
 Supabase Storage bucket name: `hushh-models` (private). Required SQL policies: anon read, insert, update on `storage.objects` for `bucket_id = 'hushh-models'`.
 
