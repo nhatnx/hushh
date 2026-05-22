@@ -1,18 +1,19 @@
 /* =========================================================
    Hushh AI — Service Worker (Next.js)
-   Strategy: Cache-first for Next.js static chunks and CDN
+   Navigation: network-first (auto-update on deploy)
+   Next.js chunks: cache-first (immutable content hashes)
+   TF.js CDN: cache-first (versioned URL, immutable)
+   Other same-origin: stale-while-revalidate
    ========================================================= */
 
-const CACHE_NAME = 'hushh-v2.0';
+const CACHE_NAME = 'hushh-v3';
 
-// Core navigational shell + public static files
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/train-worker.js',
 ];
 
 const TFJS_ORIGIN = 'https://cdn.jsdelivr.net';
@@ -20,31 +21,23 @@ const NEXT_STATIC_PREFIX = '/_next/static/';
 
 globalThis.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async cache => {
-      try {
-        await cache.addAll(STATIC_ASSETS);
-      } catch (err) {
-        console.warn('[SW] Some assets failed to cache:', err);
-      }
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(() => {}))
   );
   globalThis.skipWaiting();
 });
 
 globalThis.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => {
-            console.log('[SW] Deleting old cache:', key);
-            return caches.delete(key);
-          })
-      )
-    )
-  );
-  globalThis.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    const old = keys.filter(k => k !== CACHE_NAME);
+    await Promise.all(old.map(k => caches.delete(k)));
+    await globalThis.clients.claim();
+    // If this is an update (old caches existed), tell all open tabs to reload
+    if (old.length > 0) {
+      const clients = await globalThis.clients.matchAll({ type: 'window' });
+      clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' }));
+    }
+  })());
 });
 
 globalThis.addEventListener('fetch', event => {
@@ -53,15 +46,14 @@ globalThis.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (url.protocol === 'chrome-extension:') return;
 
-  // TF.js CDN: cache-first (large files, rarely change)
+  // TF.js CDN: cache-first (large file, versioned URL — never changes)
   if (url.origin === TFJS_ORIGIN) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
           if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
           }
           return response;
         });
@@ -77,8 +69,7 @@ globalThis.addEventListener('fetch', event => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
           if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
           }
           return response;
         });
@@ -87,23 +78,36 @@ globalThis.addEventListener('fetch', event => {
     return;
   }
 
-  // All other same-origin assets: cache-first with network fallback
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response.ok && url.origin === globalThis.location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-      });
-    })
-  );
+  // Navigation (HTML pages): network-first so deploys are reflected immediately
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.ok) {
+            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then(r => r ?? caches.match('/'))
+        )
+    );
+    return;
+  }
+
+  // All other same-origin assets: stale-while-revalidate
+  if (url.origin === globalThis.location.origin) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async cache => {
+        const cached = await cache.match(event.request);
+        const fresh = fetch(event.request).then(response => {
+          if (response.ok) cache.put(event.request, response.clone());
+          return response;
+        });
+        return cached ?? fresh;
+      })
+    );
+  }
 });
 
 globalThis.addEventListener('message', event => {

@@ -19,6 +19,11 @@ export default function HushhApp() {
       navigator.serviceWorker.register('/sw.js')
         .then(reg => console.log('[App] SW registered:', reg.scope))
         .catch(err => console.warn('[App] SW registration failed:', err));
+
+      // Reload when a new SW activates (SW_UPDATED is sent only on updates, not first install)
+      navigator.serviceWorker.addEventListener('message', ({ data }) => {
+        if (data?.type === 'SW_UPDATED') window.location.reload();
+      });
     }
 
     const banner = document.getElementById('installBanner');
@@ -136,7 +141,7 @@ export default function HushhApp() {
             <button className="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">🌓</button>
           </div>
           <div className="app-logo" aria-hidden="true">🍼</div>
-          <h1 className="app-title">Hushh</h1>
+          <h1 className="app-title">Hushh <span className="beta-badge">Beta</span></h1>
           <p className="app-tagline" data-i18n="tagline">Understand what your little one needs</p>
           <span className="privacy-pill" id="privacyBadge" aria-label="Privacy guarantee">
             🔒 Loading…
@@ -207,6 +212,27 @@ export default function HushhApp() {
             <button className="btn-clear" id="clearHistoryBtn" type="button" data-i18n="history.clear">Clear</button>
           </div>
           <div className="history-list" id="historyList"></div>
+        </section>
+
+        {/* Cloud model sync — rendered but hidden; app-logic shows it only when Firebase env vars are baked in */}
+        <section className="cloud-sync-card hidden" id="cloudSyncCard" aria-label="Community model sync">
+          <div className="cloud-sync-header">
+            <div className="cloud-sync-icon" aria-hidden="true">🌐</div>
+            <div className="cloud-sync-title-group">
+              <h3 className="cloud-sync-title" data-i18n="cloud.title">Community Model</h3>
+              <span className="cloud-sync-count hidden" id="cloudContribCount"></span>
+            </div>
+            <label className="toggle-switch" id="cloudSyncLabel" aria-label="Share my trained model">
+              <input type="checkbox" id="cloudSyncToggle" />
+              <span className="toggle-thumb" aria-hidden="true"></span>
+            </label>
+          </div>
+          <p className="cloud-sync-desc" data-i18n="cloud.desc">
+            Share your trained model to help other parents. Your audio is never uploaded — only model weights.
+          </p>
+          <div className="cloud-sync-status hidden" id="cloudSyncStatus">
+            <span id="cloudSyncStatusText"></span>
+          </div>
         </section>
       </main>
 

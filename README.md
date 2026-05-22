@@ -127,7 +127,7 @@ await model.fit(xs, ys, {
 });
 
 // Save to IndexedDB — persists across sessions
-await model.save('indexeddb://baby-cry-model');
+await model.save('indexeddb://hushh-model');
 ```
 
 ---
