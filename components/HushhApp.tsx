@@ -247,7 +247,7 @@ export default function HushhApp() {
         </section>
 
         {/* Medical disclaimer footer link */}
-        <button className="disclaimer-link" id="disclaimerBtn" type="button">
+        <button className="disclaimer-link" id="disclaimerBtn" type="button" data-i18n="disclaimer.btn">
           ⚕️ Medical disclaimer
         </button>
       </main>
@@ -314,21 +314,21 @@ export default function HushhApp() {
       >
         <div className="ios-modal">
           <div className="ios-modal-header">
-            <h2 className="ios-modal-title" id="disclaimerModalTitle">⚕️ Medical Disclaimer</h2>
+            <h2 className="ios-modal-title" id="disclaimerModalTitle" data-i18n="disclaimer.modal.title">⚕️ Medical Disclaimer</h2>
             <button className="ios-modal-close" id="disclaimerModalClose" type="button" aria-label="Close">✕</button>
           </div>
           <div className="disclaimer-body">
-            <p>This app is an <strong>assistive tool only</strong> and is not a medical device. It uses acoustic heuristics and should not replace parental judgment or medical advice.</p>
-            <p>If your baby:</p>
+            <p data-i18n="disclaimer.body.intro">This app is an <strong>assistive tool only</strong> and is not a medical device. It uses acoustic heuristics and should not replace parental judgment or medical advice.</p>
+            <p data-i18n="disclaimer.body.if">If your baby:</p>
             <ul>
-              <li>Cries for more than 3 hours/day</li>
-              <li>Has a fever above 38°C / 100.4°F</li>
-              <li>Appears to be in severe pain</li>
-              <li>Has any other concerning symptoms</li>
+              <li data-i18n="disclaimer.symptom.0">Cries for more than 3 hours/day</li>
+              <li data-i18n="disclaimer.symptom.1">Has a fever above 38°C / 100.4°F</li>
+              <li data-i18n="disclaimer.symptom.2">Appears to be in severe pain</li>
+              <li data-i18n="disclaimer.symptom.3">Has any other concerning symptoms</li>
             </ul>
-            <p className="disclaimer-urgent">Please contact a pediatrician or healthcare provider immediately.</p>
+            <p className="disclaimer-urgent" data-i18n="disclaimer.body.urgent">Please contact a pediatrician or healthcare provider immediately.</p>
           </div>
-          <button className="ios-modal-btn" id="disclaimerModalGotIt" type="button">Got it</button>
+          <button className="ios-modal-btn" id="disclaimerModalGotIt" type="button" data-i18n="disclaimer.got-it">Got it</button>
         </div>
       </div>
     </>
