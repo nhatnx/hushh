@@ -4,6 +4,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  allowedDevOrigins: ['192.168.86.32'],
 };
 
 module.exports = nextConfig;
