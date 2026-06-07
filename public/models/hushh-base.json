@@ -1,0 +1,8 @@
+{
+  "model": "hushh-cry-classifier",
+  "version": "1",
+  "inputDim": 25,
+  "architecture": "Dense(64,relu) → BatchNorm → Dropout(0.3) → Dense(32,relu) → Dropout(0.2) → Dense(5,softmax)",
+  "classes": ["hunger", "tired", "pain", "diaper", "attention"],
+  "source": "lib/cry-model.js buildModel(25)"
+}

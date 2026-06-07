@@ -6,7 +6,7 @@
    Other same-origin: stale-while-revalidate
    ========================================================= */
 
-const CACHE_NAME = 'hushh-v3';
+const CACHE_NAME = 'hushh-v4';
 
 const STATIC_ASSETS = [
   '/',
@@ -14,6 +14,8 @@ const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  // Model topology descriptor — tiny, always available offline
+  '/models/hushh-base.json',
 ];
 
 const TFJS_ORIGIN = 'https://cdn.jsdelivr.net';
@@ -29,7 +31,8 @@ globalThis.addEventListener('install', event => {
 globalThis.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    const old = keys.filter(k => k !== CACHE_NAME);
+    // Keep hushh-models-v1 (community model weights, managed by page code)
+    const old = keys.filter(k => k !== CACHE_NAME && k !== 'hushh-models-v1');
     await Promise.all(old.map(k => caches.delete(k)));
     await globalThis.clients.claim();
     // If this is an update (old caches existed), tell all open tabs to reload
