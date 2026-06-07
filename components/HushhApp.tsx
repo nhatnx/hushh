@@ -401,6 +401,7 @@ export default function HushhApp() {
           </span>
         </button>
         <input
+          suppressHydrationWarning
           type="file"
           id="fileInput"
           accept=".m4a,.mp3,.wav,.webm,.ogg,.aac,.flac,audio/*,video/mp4"
@@ -484,7 +485,7 @@ export default function HushhApp() {
               id="cloudSyncLabel"
               aria-label="Share my trained model"
             >
-              <input type="checkbox" id="cloudSyncToggle" />
+              <input suppressHydrationWarning type="checkbox" id="cloudSyncToggle" />
               <span className="toggle-thumb" aria-hidden="true"></span>
             </label>
           </div>
@@ -555,6 +556,7 @@ export default function HushhApp() {
                 aria-hidden="true"
               >
                 <svg
+                  suppressHydrationWarning
                   width="22"
                   height="22"
                   viewBox="0 0 24 24"
@@ -582,6 +584,7 @@ export default function HushhApp() {
                 aria-hidden="true"
               >
                 <svg
+                  suppressHydrationWarning
                   width="22"
                   height="22"
                   viewBox="0 0 24 24"
@@ -610,6 +613,7 @@ export default function HushhApp() {
                 aria-hidden="true"
               >
                 <svg
+                  suppressHydrationWarning
                   width="22"
                   height="22"
                   viewBox="0 0 24 24"
@@ -765,6 +769,7 @@ export default function HushhApp() {
               What would you like to share?
             </label>
             <textarea
+              suppressHydrationWarning
               className="feedback-textarea"
               id="feedbackText"
               rows={4}
