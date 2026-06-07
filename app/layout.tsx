@@ -49,13 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__hushhInstallEvent=e;});`,
           }}
         />
-        <link
-          rel="preload"
-          as="script"
-          href="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"
-          integrity="sha384-R4iglwC8w7UAyfRq7VUmXEPjrvYnoXIqhsbTUN07o6o8yKYeiTY0/Z6DzbsKgWZ3"
-          crossOrigin="anonymous"
-        />
       </head>
       <body suppressHydrationWarning>{children}</body>
     </html>

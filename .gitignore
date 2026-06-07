@@ -24,5 +24,10 @@ pnpm-debug.log*
 /.idea
 /.vscode
 
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+/.claude
 assets
 certificates
