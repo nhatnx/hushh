@@ -6,7 +6,7 @@
    Other same-origin: stale-while-revalidate
    ========================================================= */
 
-const CACHE_NAME = 'hushh-v4';
+const CACHE_NAME = 'hushh-v5';
 
 const STATIC_ASSETS = [
   '/',
@@ -43,41 +43,28 @@ globalThis.addEventListener('activate', event => {
   })());
 });
 
+/* Cache-first: serve from cache, otherwise fetch and cache. For immutable URLs. */
+function cacheFirst(request) {
+  return caches.match(request).then(cached => {
+    if (cached) return cached;
+    return fetch(request).then(response => {
+      if (response.ok) {
+        caches.open(CACHE_NAME).then(c => c.put(request, response.clone()));
+      }
+      return response;
+    });
+  });
+}
+
 globalThis.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   if (event.request.method !== 'GET') return;
   if (url.protocol === 'chrome-extension:') return;
 
-  // TF.js CDN: cache-first (large file, versioned URL — never changes)
-  if (url.origin === TFJS_ORIGIN) {
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
-          if (response.ok) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
-          }
-          return response;
-        });
-      })
-    );
-    return;
-  }
-
-  // Next.js hashed chunks: cache-first (content-addressed, immutable)
-  if (url.pathname.startsWith(NEXT_STATIC_PREFIX)) {
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
-          if (response.ok) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
-          }
-          return response;
-        });
-      })
-    );
+  // TF.js CDN and Next.js hashed chunks: cache-first (versioned/content-addressed, immutable)
+  if (url.origin === TFJS_ORIGIN || url.pathname.startsWith(NEXT_STATIC_PREFIX)) {
+    event.respondWith(cacheFirst(event.request));
     return;
   }
 

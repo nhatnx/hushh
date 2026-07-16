@@ -32,6 +32,8 @@ User's Phone
 ```bash
 npm install       # install dependencies
 npm run dev       # dev server at https://localhost:3000 (Turbopack, --experimental-https)
+npm test          # unit tests (Node's built-in test runner — zero dependencies)
+npm run typecheck # TypeScript check (tsc --noEmit)
 npm run icons     # regenerate PWA icons → public/icons/
 ```
 

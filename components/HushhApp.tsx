@@ -14,6 +14,11 @@ export default function HushhApp() {
   };
 
   useEffect(() => {
+    // One signal detaches every listener registered below (React StrictMode
+    // re-runs effects in dev — without this, listeners double up)
+    const ac = new AbortController();
+    const { signal } = ac;
+
     // Register SW immediately — independent of TF.js load
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
@@ -22,9 +27,13 @@ export default function HushhApp() {
         .catch((err) => console.warn("[App] SW registration failed:", err));
 
       // Reload when a new SW activates (SW_UPDATED is sent only on updates, not first install)
-      navigator.serviceWorker.addEventListener("message", ({ data }) => {
-        if (data?.type === "SW_UPDATED") window.location.reload();
-      });
+      navigator.serviceWorker.addEventListener(
+        "message",
+        ({ data }) => {
+          if (data?.type === "SW_UPDATED") window.location.reload();
+        },
+        { signal },
+      );
     }
 
     const banner = document.getElementById("installBanner");
@@ -63,41 +72,46 @@ export default function HushhApp() {
         .catch(() => {});
     };
 
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    window.addEventListener("appinstalled", onInstalled);
+    window.addEventListener("beforeinstallprompt", onBeforeInstall, { signal });
+    window.addEventListener("appinstalled", onInstalled, { signal });
 
-    // iOS modal helpers
-    const iosModal = document.getElementById("iosInstallModal");
+    // Modal wiring shared by the iOS-install, disclaimer, and feedback modals:
+    // close buttons, overlay tap, and Escape all dismiss the overlay.
+    const wireModal = (modalId: string, closeIds: string[]) => {
+      const modal = document.getElementById(modalId);
+      const close = () => modal?.classList.add("hidden");
+      for (const id of closeIds) {
+        document
+          .getElementById(id)
+          ?.addEventListener("click", close, { signal });
+      }
+      modal?.addEventListener(
+        "click",
+        (e) => {
+          if (e.target === modal) close();
+        },
+        { signal },
+      );
+      return { modal, close };
+    };
+
+    const { modal: iosModal } = wireModal("iosInstallModal", [
+      "iosModalClose",
+      "iosModalGotIt",
+    ]);
     const openModal = () => iosModal?.classList.remove("hidden");
-    const closeModal = () => iosModal?.classList.add("hidden");
 
-    document
-      .getElementById("iosModalClose")
-      ?.addEventListener("click", closeModal);
-    document
-      .getElementById("iosModalGotIt")
-      ?.addEventListener("click", closeModal);
-    // Close on overlay tap (but not on the card itself)
-    iosModal?.addEventListener("click", (e) => {
-      if (e.target === iosModal) closeModal();
-    });
-
-    // Disclaimer modal
-    const disclaimerModal = document.getElementById("disclaimerModal");
-    const openDisclaimer = () => disclaimerModal?.classList.remove("hidden");
-    const closeDisclaimer = () => disclaimerModal?.classList.add("hidden");
+    const { modal: disclaimerModal } = wireModal("disclaimerModal", [
+      "disclaimerModalClose",
+      "disclaimerModalGotIt",
+    ]);
     document
       .getElementById("disclaimerBtn")
-      ?.addEventListener("click", openDisclaimer);
-    document
-      .getElementById("disclaimerModalClose")
-      ?.addEventListener("click", closeDisclaimer);
-    document
-      .getElementById("disclaimerModalGotIt")
-      ?.addEventListener("click", closeDisclaimer);
-    disclaimerModal?.addEventListener("click", (e) => {
-      if (e.target === disclaimerModal) closeDisclaimer();
-    });
+      ?.addEventListener(
+        "click",
+        () => disclaimerModal?.classList.remove("hidden"),
+        { signal },
+      );
 
     // Feedback modal
     // Configure in Vercel → Settings → Environment Variables:
@@ -120,6 +134,7 @@ export default function HushhApp() {
     const feedbackCharCount = document.getElementById("feedbackCharCount");
     let selectedFeedbackType = "suggestion";
 
+    wireModal("feedbackModal", ["feedbackModalClose"]);
     const openFeedback = () => {
       feedbackModal?.classList.remove("hidden");
       feedbackForm?.classList.remove("hidden");
@@ -131,42 +146,47 @@ export default function HushhApp() {
       if (feedbackText) feedbackText.value = "";
       if (feedbackCharCount) feedbackCharCount.textContent = "0";
       // Reset type selection to first option
-      document
-        .querySelectorAll(".feedback-type-btn")
-        .forEach((b, i) => b.classList.toggle("active", i === 0));
+      document.querySelectorAll(".feedback-type-btn").forEach((b, i) => {
+        b.classList.toggle("active", i === 0);
+        b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+      });
       selectedFeedbackType = "suggestion";
       feedbackText?.focus();
     };
-    const closeFeedback = () => feedbackModal?.classList.add("hidden");
-
     document
       .getElementById("feedbackBtn")
-      ?.addEventListener("click", openFeedback);
-    document
-      .getElementById("feedbackModalClose")
-      ?.addEventListener("click", closeFeedback);
-    feedbackModal?.addEventListener("click", (e) => {
-      if (e.target === feedbackModal) closeFeedback();
-    });
+      ?.addEventListener("click", openFeedback, { signal });
 
     document.querySelectorAll(".feedback-type-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document
-          .querySelectorAll(".feedback-type-btn")
-          .forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedFeedbackType =
-          (btn as HTMLElement).dataset.type ?? "suggestion";
-      });
+      btn.addEventListener(
+        "click",
+        () => {
+          document.querySelectorAll(".feedback-type-btn").forEach((b) => {
+            b.classList.remove("active");
+            b.setAttribute("aria-pressed", "false");
+          });
+          btn.classList.add("active");
+          btn.setAttribute("aria-pressed", "true");
+          selectedFeedbackType =
+            (btn as HTMLElement).dataset.type ?? "suggestion";
+        },
+        { signal },
+      );
     });
 
-    feedbackText?.addEventListener("input", () => {
-      const len = feedbackText!.value.length;
-      if (feedbackCharCount) feedbackCharCount.textContent = String(len);
-      if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = len < 5;
-    });
+    feedbackText?.addEventListener(
+      "input",
+      () => {
+        const len = feedbackText!.value.length;
+        if (feedbackCharCount) feedbackCharCount.textContent = String(len);
+        if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = len < 5;
+      },
+      { signal },
+    );
 
-    feedbackSubmitBtn?.addEventListener("click", async () => {
+    feedbackSubmitBtn?.addEventListener(
+      "click",
+      async () => {
       const message = feedbackText?.value.trim() ?? "";
       if (message.length < 5 || !feedbackSubmitBtn) return;
 
@@ -193,19 +213,40 @@ export default function HushhApp() {
         feedbackSubmitBtn.disabled = false;
         feedbackSubmitBtn.textContent = origText;
       }
-    });
+      },
+      { signal },
+    );
 
-    btn?.addEventListener("click", async () => {
-      if (isIOS) {
-        openModal();
-        return;
-      }
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") banner?.classList.add("hidden");
-      deferredPrompt = null;
-    });
+    // Escape closes whichever modal overlay is open
+    window.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key !== "Escape") return;
+        for (const modal of [iosModal, disclaimerModal, feedbackModal]) {
+          if (modal && !modal.classList.contains("hidden")) {
+            modal.classList.add("hidden");
+            return;
+          }
+        }
+      },
+      { signal },
+    );
+
+    btn?.addEventListener(
+      "click",
+      async () => {
+        if (isIOS) {
+          openModal();
+          return;
+        }
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") banner?.classList.add("hidden");
+        deferredPrompt = null;
+      },
+      { signal },
+    );
 
     // If TF.js hasn't fired onLoad/onError within 20s (slow network, blocked CDN),
     // start the app anyway in heuristic mode
@@ -238,15 +279,12 @@ export default function HushhApp() {
         .catch(() => {});
     };
 
-    window.addEventListener("error", handleError);
-    window.addEventListener("unhandledrejection", handleRejection);
+    window.addEventListener("error", handleError, { signal });
+    window.addEventListener("unhandledrejection", handleRejection, { signal });
 
     return () => {
       clearTimeout(tfFallbackTimer);
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
-      window.removeEventListener("appinstalled", onInstalled);
-      window.removeEventListener("error", handleError);
-      window.removeEventListener("unhandledrejection", handleRejection);
+      ac.abort(); // detaches every listener registered with { signal }
     };
   }, []);
 
@@ -262,9 +300,7 @@ export default function HushhApp() {
         onError={() => initApp()}
       />
 
-      <main className="app-shell" role="main">
-        <h1 className="sr-only">Hushh — on-device AI baby cry analyzer</h1>
-
+      <main className="app-shell">
         {/* Header */}
         <header className="app-header">
           <div className="header-controls">
@@ -290,6 +326,7 @@ export default function HushhApp() {
           </div>
           <h1 className="app-title">
             Hushh <span className="beta-badge">Beta</span>
+            <span className="sr-only"> — on-device AI baby cry analyzer</span>
           </h1>
           <p className="app-tagline" data-i18n="tagline">
             Understand what your little one needs
@@ -373,7 +410,7 @@ export default function HushhApp() {
             aria-hidden="true"
           >
             <div className="wave-wrap">
-              <canvas id="waveCanvas" aria-label="Audio waveform"></canvas>
+              <canvas id="waveCanvas"></canvas>
             </div>
           </div>
           <p
@@ -735,11 +772,16 @@ export default function HushhApp() {
           </div>
 
           <div id="feedbackForm">
-            <div className="feedback-type-row" role="group">
+            <div
+              className="feedback-type-row"
+              role="group"
+              aria-label="Feedback type"
+            >
               <button
                 className="feedback-type-btn active"
                 data-type="suggestion"
                 type="button"
+                aria-pressed="true"
                 data-i18n="feedback.type.suggestion"
               >
                 💡 Suggestion
@@ -748,6 +790,7 @@ export default function HushhApp() {
                 className="feedback-type-btn"
                 data-type="bug"
                 type="button"
+                aria-pressed="false"
                 data-i18n="feedback.type.bug"
               >
                 🐛 Bug
@@ -756,6 +799,7 @@ export default function HushhApp() {
                 className="feedback-type-btn"
                 data-type="other"
                 type="button"
+                aria-pressed="false"
                 data-i18n="feedback.type.other"
               >
                 💬 Other

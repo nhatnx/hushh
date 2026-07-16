@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack --experimental-https",
     "build": "next build --turbopack",
     "start": "next start",
-    "icons": "node generate-icons.cjs"
+    "icons": "node generate-icons.cjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "^15.3.1",

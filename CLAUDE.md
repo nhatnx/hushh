@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install          # install deps — use npm, not pnpm (pnpm-lock.yaml is for build only)
 npm run dev          # dev server with Turbopack at https://localhost:3000 (--experimental-https)
+npm test             # zero-dependency unit tests (node --test) for lib/ pure logic
+npm run typecheck    # tsc --noEmit
 npm run icons        # generate-icons.cjs → public/icons/icon-192.png, icon-512.png
 ```
 
@@ -20,7 +22,7 @@ pnpm run build       # static export to out/ (Turbopack; pnpm-lock.yaml ships wi
 
 The dev server runs over **HTTPS** (`--experimental-https`) so `getUserMedia` works when testing from other devices on the LAN (allowed dev origins are listed in `next.config.js`). Next.js auto-generates certificates into `certificates/` — that directory and `assets/` (marketing media) are gitignored local artifacts.
 
-There are no tests and no ESLint configuration — only SonarLint (project: `nhatnx_hushh`). TypeScript type checking: run `npx tsc --noEmit` manually; `tsconfig.json` has `strict: false` and `allowJs: true`, so `.js` files in `lib/` are included but loosely typed.
+Tests live in `test/*.test.mjs` and use Node's built-in `node:test` runner — no test dependencies. They cover the pure logic in `lib/` (audio-analyzer DSP, cry-model heuristics/vector layout, i18n). `lib/package.json` (`{"type":"module"}`) exists solely so Node can import the ESM `lib/*.js` files in tests; Next.js bundles them regardless. There is no ESLint configuration — only SonarLint (project: `nhatnx_hushh`). `tsconfig.json` has `strict: false` and `allowJs: true`, so `.js` files in `lib/` are included but loosely typed.
 
 **Note for Windows:** The `Collecting page data` build phase calls `fs.readlink()` on module files. On NTFS with non-standard reparse-point behavior, this returns EISDIR for regular files — a Node.js/Windows bug. **Vercel builds on Linux where this does not occur.** To deploy: push to Git and let Vercel build. Local `npm run dev` is unaffected.
 
@@ -63,7 +65,7 @@ public/
 
 ### TF.js loading
 
-TF.js is loaded as a UMD global via `<Script strategy="afterInteractive">` (with SRI integrity hash) in `HushhApp.tsx`. Both `onLoad` and `onError` call `initApp()`, which dynamically imports `lib/app-logic.js` and calls `init()` exactly once (guarded by a ref) — so the app starts whether the CDN succeeds or fails, and `window.tf` is defined before any app code that uses it. **Do not add an ESM import of TF.js** (`tf.esm.js` does not exist in 4.17.0's dist). Both `app-logic.js` and `cry-model.js` access it as `const tf = window.tf`.
+TF.js is loaded as a UMD global via `<Script strategy="afterInteractive">` (with SRI integrity hash) in `HushhApp.tsx`. Both `onLoad` and `onError` call `initApp()`, which dynamically imports `lib/app-logic.js` and calls `init()` exactly once (guarded by a ref) — so the app starts whether the CDN succeeds or fails. **Do not add an ESM import of TF.js** (`tf.esm.js` does not exist in 4.17.0's dist). Both `app-logic.js` and `cry-model.js` resolve it **lazily per call** via a `getTf()` helper — never capture `const tf = window.tf` at module scope, because when `init()` runs via the 20 s fallback timer the CDN script can still arrive later, and a module-scope capture would permanently see `undefined`.
 
 If TF.js fires neither `onLoad` nor `onError` within 20 s (slow network, blocked CDN), a fallback timer in `HushhApp.tsx` starts the app in heuristic-only mode anyway.
 
@@ -154,7 +156,7 @@ Supabase Storage bucket name: `hushh-models` (private). Required SQL policies: a
 
 ### Service Worker (public/sw.js)
 
-Cache name versioned as `hushh-v4`. **Upgrade this string when deploying changes** to force cache invalidation. On activate, old caches are deleted **except `hushh-models-v1`** (community model weights, managed by model-cloud.js via the Cache API — don't wipe it in the SW cleanup). Caching strategies by asset type:
+Cache name versioned as `hushh-v5`. **Upgrade this string when deploying changes** to force cache invalidation. On activate, old caches are deleted **except `hushh-models-v1`** (community model weights, managed by model-cloud.js via the Cache API — don't wipe it in the SW cleanup). Caching strategies by asset type:
 
 - **Navigation (HTML)**: network-first (ensures users always get the latest deploy)
 - **Next.js chunks** `/_next/static/`: cache-first (immutable content hashes)
