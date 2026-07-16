@@ -67,6 +67,8 @@ TF.js is loaded as a UMD global via `<Script strategy="afterInteractive">` (with
 
 If TF.js fires neither `onLoad` nor `onError` within 20 s (slow network, blocked CDN), a fallback timer in `HushhApp.tsx` starts the app in heuristic-only mode anyway.
 
+The TF.js version (4.17.0) is pinned in **three places that must change together** when upgrading: the script `src` URL and its SRI `integrity` hash in `HushhApp.tsx`, and the version-pinned `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/` path in the `script-src` CSP directive in `vercel.json`. Missing the CSP update blocks the script in production only.
+
 ### Audio Pipeline
 
 `AudioAnalyzer` (lib/audio-analyzer.js) processes raw PCM via Web Audio API:
@@ -135,7 +137,7 @@ Optional anonymous federated learning via **Supabase Storage** — no SDK, plain
 - Device identity is a random UUID in `localStorage` (`hushh-device-id`)
 - The cloud sync UI card is hidden in `HushhApp.tsx`; `app-logic.js` shows it only when env vars are present
 
-**Required env vars** (set in Vercel → Settings → Environment Variables):
+**Required env vars** (set in Vercel → Settings → Environment Variables; for local dev put them in `.env.local` at the repo root — gitignored). All are `NEXT_PUBLIC_*` and therefore inlined at build time by the static export — changing them requires a rebuild (or dev-server restart), not just a redeploy of the same build:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL      = https://xxxx.supabase.co

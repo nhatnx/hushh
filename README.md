@@ -31,7 +31,7 @@ User's Phone
 
 ```bash
 npm install       # install dependencies
-npm run dev       # dev server at http://localhost:3000 (Turbopack)
+npm run dev       # dev server at https://localhost:3000 (Turbopack, --experimental-https)
 npm run icons     # regenerate PWA icons → public/icons/
 ```
 
@@ -41,7 +41,7 @@ pnpm run build    # static export to out/
 
 > **Deploy via Vercel** (push to Git) — local builds on Windows may fail during the `Collecting page data` phase due to a Node.js/NTFS bug. `npm run dev` is unaffected.
 
-HTTPS is required in production for `getUserMedia`; localhost is exempt.
+The dev server uses HTTPS so `getUserMedia` works when testing from other devices on the LAN. HTTPS is also required in production for `getUserMedia`; localhost is exempt.
 
 ---
 
@@ -54,7 +54,8 @@ app/
   globals.css       Design system (CSS custom properties, warm theme)
 
 components/
-  HushhApp.tsx      Client component — JSX structure, TF.js loader, SW registration
+  HushhApp.tsx      Client component — JSX structure, TF.js loader, SW registration,
+                    PWA install banner, disclaimer/feedback modals
 
 lib/
   app-logic.js      Main controller — state machine, recording, UI, on-device training
@@ -86,7 +87,7 @@ The analyzer extracts these acoustic features per recording:
 | **Onset rate** | Pain: sudden starts; attention: gentle, intermittent |
 | **13 MFCCs** | Timbral texture — nasal vs breathy vs tense quality |
 
-These features feed a **TensorFlow.js neural network** (2 dense layers + dropout) with a **heuristic fallback** based on published infant cry research:
+Classification is two-stage: a **rule-based heuristic** grounded in published infant cry research always runs, and a **TensorFlow.js neural network** (dense 64 → 32 → 5 softmax, with batch-norm and dropout) is blended in 60/40 once personalized weights exist in IndexedDB. Research basis:
 
 - Lester & Boukydis (1992) — *Infant Crying*
 - Várallyay (2008) — *Baby cry recognition in the presence of noise*
@@ -100,7 +101,7 @@ Users can correct predictions via thumbs-up/down feedback. Once 5+ labeled sampl
 
 ## Cloud Model Sync (optional)
 
-Anonymous federated averaging via Supabase Storage. Requires these environment variables (set in Vercel → Settings → Environment Variables):
+Anonymous federated averaging via Supabase Storage — plain `fetch`, no SDK. Only model *weights* are shared (int8-quantized, base64-encoded); never audio or features. Requires these environment variables (set in Vercel → Settings → Environment Variables, or `.env.local` for local dev):
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL
@@ -108,6 +109,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
 When not configured, the cloud sync UI is hidden and the app runs fully offline.
+
+The in-app feedback modal (posts to a Google Form) is likewise optional, powered by:
+
+```text
+NEXT_PUBLIC_FEEDBACK_FORM_URL
+NEXT_PUBLIC_FEEDBACK_ENTRY_MESSAGE
+NEXT_PUBLIC_FEEDBACK_ENTRY_TYPE
+```
 
 ---
 
