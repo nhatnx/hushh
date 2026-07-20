@@ -4,9 +4,16 @@
    Next.js chunks: cache-first (immutable content hashes)
    TF.js CDN: cache-first (versioned URL, immutable)
    Other same-origin: stale-while-revalidate
+   Updates: new SW waits until the user accepts the in-app
+   update banner (SKIP_WAITING message), then SW_UPDATED
+   reloads every open tab.
    ========================================================= */
 
-const CACHE_NAME = 'hushh-v5';
+// Version comes from the registration URL (/sw.js?v=<build id> — see HushhApp.tsx).
+// public/ files are served verbatim by the static export, so process.env is NOT
+// substituted here; the query param is the only way to inject the build id.
+const VERSION = new URLSearchParams(globalThis.location.search).get('v') || 'v6';
+const CACHE_NAME = `hushh-${VERSION}`;
 
 const STATIC_ASSETS = [
   '/',
@@ -23,9 +30,10 @@ const NEXT_STATIC_PREFIX = '/_next/static/';
 
 globalThis.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(() => {}))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(() => { }))
   );
-  globalThis.skipWaiting();
+  // No skipWaiting() here — the new SW stays in "waiting" until the user
+  // accepts the update banner, which posts SKIP_WAITING (handler below).
 });
 
 globalThis.addEventListener('activate', event => {
@@ -52,7 +60,7 @@ function cacheFirst(request) {
         // Clone before returning — the body starts streaming to the page
         // immediately, and a deferred clone() would find it already used
         const copy = response.clone();
-        caches.open(CACHE_NAME).then(c => c.put(request, copy)).catch(() => {});
+        caches.open(CACHE_NAME).then(c => c.put(request, copy)).catch(() => { });
       }
       return response;
     });
@@ -78,7 +86,7 @@ globalThis.addEventListener('fetch', event => {
         .then(response => {
           if (response.ok) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then(c => c.put(event.request, copy)).catch(() => {});
+            caches.open(CACHE_NAME).then(c => c.put(event.request, copy)).catch(() => { });
           }
           return response;
         })

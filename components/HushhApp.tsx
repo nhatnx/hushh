@@ -19,11 +19,66 @@ export default function HushhApp() {
     const ac = new AbortController();
     const { signal } = ac;
 
-    // Register SW immediately — independent of TF.js load
+    // Register SW immediately — independent of TF.js load.
+    // The ?v= param versions the SW per build: sw.js itself never changes, but a
+    // new build id makes the browser treat it as an updated SW (public/ files are
+    // served verbatim, so this is the only way to inject the build id).
     if ("serviceWorker" in navigator) {
+      const updateBanner = document.getElementById("updateBanner");
+      const showUpdateBanner = () => updateBanner?.classList.remove("hidden");
+
       navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => console.log("[App] SW registered:", reg.scope))
+        .register(`/sw.js?v=${process.env.NEXT_PUBLIC_BUILD_ID ?? "v6"}`)
+        .then((reg) => {
+          console.log("[App] SW registered:", reg.scope);
+
+          // Update already waiting (e.g. banner was ignored on a previous visit)
+          if (reg.waiting && navigator.serviceWorker.controller)
+            showUpdateBanner();
+
+          // New SW found: show the banner once it reaches "installed" (= waiting).
+          // A controller must exist, otherwise this is the first install.
+          reg.addEventListener(
+            "updatefound",
+            () => {
+              const sw = reg.installing;
+              sw?.addEventListener(
+                "statechange",
+                () => {
+                  if (
+                    sw.state === "installed" &&
+                    navigator.serviceWorker.controller
+                  )
+                    showUpdateBanner();
+                },
+                { signal },
+              );
+            },
+            { signal },
+          );
+
+          // User accepts: activate the waiting SW. It deletes old caches and
+          // broadcasts SW_UPDATED, which reloads every open tab (listener below).
+          document.getElementById("updateBtn")?.addEventListener(
+            "click",
+            () => {
+              reg.waiting?.postMessage("SKIP_WAITING");
+              updateBanner?.classList.add("hidden");
+            },
+            { signal },
+          );
+
+          // Long-lived PWA sessions never re-navigate — re-check for updates
+          // whenever the app returns to the foreground
+          document.addEventListener(
+            "visibilitychange",
+            () => {
+              if (document.visibilityState === "visible")
+                reg.update().catch(() => {});
+            },
+            { signal },
+          );
+        })
         .catch((err) => console.warn("[App] SW registration failed:", err));
 
       // Reload when a new SW activates (SW_UPDATED is sent only on updates, not first install)
@@ -365,6 +420,34 @@ export default function HushhApp() {
             data-i18n="install.btn"
           >
             Install
+          </button>
+        </div>
+
+        {/* Update banner — shown when a new service worker is waiting */}
+        <div
+          className="install-banner hidden"
+          id="updateBanner"
+          role="complementary"
+          aria-label="Update available"
+        >
+          <span className="banner-icon" aria-hidden="true">
+            ✨
+          </span>
+          <div className="banner-text">
+            <strong className="banner-title" data-i18n="update.title">
+              New version available
+            </strong>
+            <span className="banner-sub" data-i18n="update.sub">
+              Tap update to get the latest improvements
+            </span>
+          </div>
+          <button
+            className="btn-install"
+            id="updateBtn"
+            type="button"
+            data-i18n="update.btn"
+          >
+            Update
           </button>
         </div>
 

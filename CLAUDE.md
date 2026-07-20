@@ -12,8 +12,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install          # install deps — use npm, not pnpm (pnpm-lock.yaml is for build only)
 npm run dev          # dev server with Turbopack at https://localhost:3000 (--experimental-https)
 npm test             # zero-dependency unit tests (node --test) for lib/ pure logic
+node --test test/audio-analyzer.test.mjs   # run a single test file
 npm run typecheck    # tsc --noEmit
 npm run icons        # generate-icons.cjs → public/icons/icon-192.png, icon-512.png
+                     # (the `canvas` devDependency exists only for this script)
 ```
 
 ```bash
@@ -156,14 +158,16 @@ Supabase Storage bucket name: `hushh-models` (private). Required SQL policies: a
 
 ### Service Worker (public/sw.js)
 
-Cache name versioned as `hushh-v5`. **Upgrade this string when deploying changes** to force cache invalidation. On activate, old caches are deleted **except `hushh-models-v1`** (community model weights, managed by model-cloud.js via the Cache API — don't wipe it in the SW cleanup). Caching strategies by asset type:
+The cache name is versioned **per build**: `HushhApp.tsx` registers `/sw.js?v=${NEXT_PUBLIC_BUILD_ID}` (build id generated in `next.config.js`), and `sw.js` reads the version from its own query string (`self.location.search`) — so every deploy is automatically a new SW, no manual version bump needed. This query-param indirection is required because files in `public/` are copied verbatim by the static export — they are never bundled, so `process.env.*` / `NEXT_PUBLIC_*` references in `sw.js` (or `train-worker.js`) are not substituted and would throw `ReferenceError: process is not defined` at SW evaluation, silently breaking registration.
+
+**Update flow (user-prompted, not automatic):** the SW does **not** call `skipWaiting()` on install — a new SW parks in `waiting`. `HushhApp.tsx` detects this (`reg.waiting` on load, plus `updatefound`/`statechange`, guarded by `navigator.serviceWorker.controller` so the first install never prompts) and reveals the `#updateBanner`. Tapping Update posts `SKIP_WAITING` to the waiting SW; it activates, deletes old caches, and broadcasts `SW_UPDATED`, which reloads every open tab. `reg.update()` is also called on `visibilitychange` so long-lived installed-PWA sessions still discover updates. On activate, old caches are deleted **except `hushh-models-v1`** (community model weights, managed by model-cloud.js via the Cache API — don't wipe it in the SW cleanup). Caching strategies by asset type:
 
 - **Navigation (HTML)**: network-first (ensures users always get the latest deploy)
 - **Next.js chunks** `/_next/static/`: cache-first (immutable content hashes)
 - **TF.js CDN** (`cdn.jsdelivr.net`): cache-first (versioned URL, immutable)
 - **Other same-origin assets**: stale-while-revalidate
 
-Sends `{ type: 'SW_UPDATED' }` to all clients when a new SW activates (updates only, not first install), triggering a page reload via the listener in `HushhApp.tsx`.
+Sends `{ type: 'SW_UPDATED' }` to all clients when a new SW activates (updates only, not first install — detected via leftover old caches), triggering a page reload via the listener in `HushhApp.tsx`.
 
 ### CSP (vercel.json)
 
