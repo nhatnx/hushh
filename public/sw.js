@@ -49,7 +49,10 @@ function cacheFirst(request) {
     if (cached) return cached;
     return fetch(request).then(response => {
       if (response.ok) {
-        caches.open(CACHE_NAME).then(c => c.put(request, response.clone()));
+        // Clone before returning — the body starts streaming to the page
+        // immediately, and a deferred clone() would find it already used
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(c => c.put(request, copy)).catch(() => {});
       }
       return response;
     });
@@ -74,7 +77,8 @@ globalThis.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           if (response.ok) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, copy)).catch(() => {});
           }
           return response;
         })
