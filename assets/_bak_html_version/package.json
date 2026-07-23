@@ -1,8 +1,0 @@
-{
-  "name": "hushh",
-  "version": "1.0.0",
-  "description": "Hushh AI cry analyzer — on-device baby cry classification PWA",
-  "devDependencies": {
-    "canvas": "^3.2.3"
-  }
-}
