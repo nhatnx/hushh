@@ -581,7 +581,7 @@ export default function HushhApp() {
           <div className="history-list" id="historyList"></div>
         </section>
 
-        {/* Cloud model sync — rendered but hidden; app-logic shows it only when Firebase env vars are baked in */}
+        {/* Cloud model sync — rendered but hidden; app-logic shows it only when Supabase env vars are baked in */}
         <section
           className="cloud-sync-card hidden"
           id="cloudSyncCard"
