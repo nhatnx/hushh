@@ -29,5 +29,5 @@ pnpm-debug.log*
 next-env.d.ts
 
 /.claude
-assets
-certificates
+/assets
+/certificates
