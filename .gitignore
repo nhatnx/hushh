@@ -1,19 +1,33 @@
 # dependencies
 /node_modules
 
+# Next.js
+/.next
+/out
+
 # env files (never commit secrets)
 .env
 .env*.local
 
 # vercel
-.vercel
+/.vercel
 
 # OS
-.DS_Store
+/.DS_Store
 
 # logs
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# editors
+/.idea
+/.vscode
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+/.claude
 /assets
+/certificates

@@ -1,0 +1,25 @@
+{
+  "name": "hushh",
+  "version": "1.0.0",
+  "description": "Hushh AI cry analyzer — on-device baby cry classification PWA",
+  "scripts": {
+    "dev": "next dev --turbopack --experimental-https",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "icons": "node generate-icons.cjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "canvas": "^3.2.3",
+    "typescript": "^5"
+  }
+}
