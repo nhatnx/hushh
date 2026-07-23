@@ -113,7 +113,16 @@ globalThis.addEventListener('fetch', event => {
 });
 
 globalThis.addEventListener('message', event => {
-  if (!event.source) return;
-  if (new URL(event.source.url).origin !== globalThis.location.origin) return;
-  if (event.data === 'SKIP_WAITING') globalThis.skipWaiting();
+  if (event.origin !== globalThis.location.origin) {
+    return;
+  }
+  if (!event.source) {
+    return;
+  }
+  if (new URL(event.source.url).origin !== globalThis.location.origin) {
+    return;
+  }
+  if (event.data === 'SKIP_WAITING') {
+    globalThis.skipWaiting();
+  }
 });
