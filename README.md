@@ -150,4 +150,4 @@ This app is an **assistive tool only** and is not a medical device. It uses acou
 
 ## License
 
-MIT — free to use, modify, and distribute.
+Proprietary — all rights reserved. See [LICENSE](LICENSE). This code may not be used, copied, modified, or distributed without written permission from the copyright holder. (Versions previously released under MIT remain MIT for their recipients.)

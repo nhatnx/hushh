@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Hushh** is a baby cry analyzer — a Progressive Web App that classifies infant vocalizations (hunger, pain, fatigue, etc.) entirely on-device. No audio ever leaves the device. Built with **Next.js 15** (App Router, static export) + React 19.
 
+**This is a closed-source, proprietary project** (all rights reserved — see `LICENSE`; versions released before the license change remain MIT for their recipients). Do not add open-source license headers, badges, or "free to use" language to any file, and do not publish code from this repo elsewhere.
+
 ## Commands
 
 ```bash
@@ -63,7 +65,7 @@ public/
 
 ### Legacy artifacts
 
-`index.html` at the repo root and `public/train-worker.js` are leftovers from the pre-Next.js plain-HTML version and are **not part of the active app** — the canonical source is under `app/`, `lib/`, `components/`, and `public/`. Do not edit them or wire them in.
+`public/train-worker.js` is a leftover from the pre-Next.js plain-HTML version and is **not part of the active app** — the canonical source is under `app/`, `lib/`, `components/`, and `public/`. Do not edit it or wire it in. (The old root `index.html` has already been deleted.)
 
 ### TF.js loading
 
@@ -93,7 +95,7 @@ Magnitude spectrum is computed once per frame via `_magnitude()` (Cooley-Tukey r
 Two-stage classification:
 
 1. **Heuristic** (`heuristicClassify`): rule-based scoring on acoustic features, grounded in infant cry research. Always runs.
-2. **TF.js neural net** (`buildModel`): 2-layer dense network (64→32→5 softmax). Only contributes when personalized weights exist in IndexedDB (`indexeddb://hushh-model`). Blended 60/40 (model/heuristic) when available.
+2. **TF.js neural net** (`buildModel`): 2-layer dense network (64→32→5 softmax, with batch-norm and dropout). Only contributes when personalized weights exist in IndexedDB (`indexeddb://hushh-model`). Blended 60/40 (model/heuristic) when available.
 
 Classes: `hunger`, `tired`, `pain`, `diaper`, `attention`. Result marked uncertain when top confidence < 35% or margin to second class < 8 pp.
 
